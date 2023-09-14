@@ -50,8 +50,8 @@
  * concurrently! The okapi namespace will export all symbols inside the pros
  * namespace.
  */
-// using namespace pros;
-// using namespace pros::literals;
+ using namespace pros;
+ using namespace pros::literals;
 // using namespace okapi;
 
 /**
@@ -63,6 +63,7 @@
 extern "C" {
 #endif
 void autonomous(void);
+void odometry();
 void initialize(void);
 void disabled(void);
 void competition_initialize(void);

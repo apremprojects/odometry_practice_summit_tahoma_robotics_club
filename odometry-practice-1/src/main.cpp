@@ -1,5 +1,10 @@
+#define _USE_MATH_DEFINES
 #include "main.h"
-
+#include <vector>
+#include <iostream>
+#include <cmath>
+using namespace pros;
+using namespace std;
 /**
  * A callback function for LLEMU's center button.
  *
@@ -22,11 +27,31 @@ void on_center_button() {
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
 
-	pros::lcd::register_btn1_cb(on_center_button);
+void odometry(){
+	uint32_t update_delay = 20; //in ms
+	int wheel_base_width = 400; //in mm
+	int wheel_radius = 100; //in mm
+	while(true){
+		Motor left(1);
+		Motor right(2);
+		double left_rpm = left.get_actual_velocity();
+		double right_rpm = right.get_actual_velocity();
+		if(left_rpm == PROS_ERR_F || right_rpm == PROS_ERR_F){
+			cout << "MOTOR FAULT\n";
+			return;
+		}
+		double left_spd = left_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
+		double right_spd = right_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
+		double dif_spd = left_spd - right_spd;
+		double angle_rate = dif_spd / (wheel_base_width / 2); //angle rate in millirad/s
+		double forward_spd = (left_spd + right_spd) / 2;
+		delay(update_delay);
+	}
+}
+
+void initialize() {
+	Task task(odometry);
 }
 
 /**
@@ -77,17 +102,4 @@ void opcontrol() {
 	pros::Controller master(pros::E_CONTROLLER_MASTER);
 	pros::Motor left_mtr(1);
 	pros::Motor right_mtr(2);
-
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
-
-		left_mtr = left;
-		right_mtr = right;
-
-		pros::delay(20);
-	}
 }
