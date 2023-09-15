@@ -5,6 +5,12 @@
 #include <cmath>
 using namespace pros;
 using namespace std;
+
+struct state_t{
+	double x = 0;
+	double y = 0;
+	double angle = 0;
+};
 /**
  * A callback function for LLEMU's center button.
  *
@@ -28,30 +34,39 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 
-void odometry(){
+void odometry(void *state){
 	uint32_t update_delay = 20; //in ms
 	int wheel_base_width = 400; //in mm
 	int wheel_radius = 100; //in mm
 	while(true){
 		Motor left(1);
-		Motor right(2);
+		Motor right(7);
 		double left_rpm = left.get_actual_velocity();
 		double right_rpm = right.get_actual_velocity();
 		if(left_rpm == PROS_ERR_F || right_rpm == PROS_ERR_F){
 			cout << "MOTOR FAULT\n";
 			return;
 		}
+		cout << "MOTORS ARE FINE\n";
 		double left_spd = left_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
 		double right_spd = right_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
 		double dif_spd = left_spd - right_spd;
 		double angle_rate = dif_spd / (wheel_base_width / 2); //angle rate in millirad/s
 		double forward_spd = (left_spd + right_spd) / 2;
+		state_t &state = (state_t &)state;
+		state.angle += angle_rate * (update_delay / 1000);
+		state.x += forward_spd * cos(state.angle);
+		state.y += forward_spd * sin(state.angle);
+		cout << state.angle << "\n";
+		pros::c::screen_print(TEXT_MEDIUM, 3, "%lf", state.angle);
 		delay(update_delay);
 	}
 }
 
 void initialize() {
-	Task task(odometry);
+	state_t state;
+	void *params = &state;
+	Task odometry_task(odometry, params);
 }
 
 /**
@@ -100,6 +115,6 @@ void autonomous() {}
  */
 void opcontrol() {
 	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
+	//pros::Motor left_mtr(1);
+	//pros::Motor right_mtr(2);
 }
