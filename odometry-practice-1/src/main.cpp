@@ -53,19 +53,19 @@ void odometry(void *state){
 		double dif_spd = left_spd - right_spd;
 		double angle_rate = dif_spd / (wheel_base_width / 2); //angle rate in millirad/s
 		double forward_spd = (left_spd + right_spd) / 2;
-		state_t &state = (state_t &)state;
-		state.angle += angle_rate * (update_delay / 1000);
-		state.x += forward_spd * cos(state.angle);
-		state.y += forward_spd * sin(state.angle);
-		cout << state.angle << "\n";
-		pros::c::screen_print(TEXT_MEDIUM, 3, "%lf", state.angle);
+		state_t *state = (state_t *)state;
+		state->angle += angle_rate * (update_delay / 1000);
+		state->x += forward_spd * cos(state->angle);
+		state->y += forward_spd * sin(state->angle);
+		cout << state->angle << "\n";
+		pros::c::screen_print(TEXT_MEDIUM, 3, "%lf", state->angle);
 		delay(update_delay);
 	}
 }
 
 void initialize() {
-	state_t state;
-	void *params = &state;
+	state_t *state = new state_t;
+	void *params = state;
 	Task odometry_task(odometry, params);
 }
 
