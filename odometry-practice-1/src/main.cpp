@@ -58,9 +58,22 @@ void odometry(void *arg){
 		double delta_rev = left_rev - right_rev;
 		double dist_bias = delta_rev * (2 * M_PI * wheel_radius);
 		double arc_circ = wheel_base_width * 2 * M_PI;
-		double angle = (dist_bias / arc_circ) * 360.0;
-		cout << *tstamp << " -> " << left_rev << ", " << right_rev << " -> " << angle << "\n";
+		state->angle = (dist_bias / arc_circ) * 2 * M_PI;
+		double left_rpm = left.get_actual_velocity();
+		if(left.is_reversed()){
+			left_rpm = -left_rpm;
+		}
+		double right_rpm = right.get_actual_velocity();
+		if(!right.is_reversed()){
+			right_rpm = -right_rpm;
+		}
+		double average_rpm = (left_rpm + right_rpm) / 2;
+		double forward_spd = average_rpm * 2 * M_PI * wheel_radius / 60;
+		state->x += cos(state->angle) * forward_spd * (update_delay / 1000.0);
+		state->y += sin(state->angle) * forward_spd * (update_delay / 1000.0);
+		cout << *tstamp << " -> " << left_rev << ", " << right_rev << " -> " << 360 * (state->angle / (2.0 * M_PI)) << ", " << state->x << ", " << state->y << "\n";
 		delete tstamp;
+		
 		delay(update_delay);
 	}
 	/*while(true){
