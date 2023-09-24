@@ -52,10 +52,10 @@ class State{
 		double y = 0;
 		double velocity = 0;
 		double angle = 0;
-	private:
-		int update_freq;
 		Motor left;
 		Motor right;
+	private:
+		int update_freq;
 };
 
 class Mixer{
@@ -101,6 +101,7 @@ class PID{
 			double p_a, i_a, d_a = 0;
 			double p_v, i_v, d_v;
 			while(true){
+				pros::c::screen_print(TEXT_MEDIUM, 7, "p_g, i_g, d_g -> %f, %f, %f", p_g, i_g, d_g);
 				state->update();
 				new_angle_error = target_angle - state->angle;
 
@@ -263,11 +264,14 @@ void opcontrol() {
 	int update_freq = 60;
 	State *state = new State(7, 1, update_freq * 2);
 	Mixer *mixer = new Mixer(7, 1);
-	PID *pid = new PID(1, 1, 1, update_freq, mixer, state);
+	PID *pid = new PID(0.2, 1, 1, update_freq, mixer, state);
 	double angle_rate = 0.5 * M_PI;//rad/s
-	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq](){
+	double pid_rate = 4; //per second
+	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq, pid_rate](){
 		while(true){
-			pid->target_angle += angle_rate * (1.0 / update_freq) * (master.get_analog(ANALOG_LEFT_X) / 127.0);
+			pid->target_angle += angle_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_X) / 127.0);
+			pid->i_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_X) / 127.0);
+			pid->d_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_Y) / 127.0);
 			pros::c::screen_print(TEXT_MEDIUM, 0, "PID target_angle -> %f", pid->target_angle);
 			cout << "PID target_angle -> " << pid->target_angle << "\n";
 			pros::c::screen_print(TEXT_MEDIUM, 1, "Actual angle -> %f", state->angle);
