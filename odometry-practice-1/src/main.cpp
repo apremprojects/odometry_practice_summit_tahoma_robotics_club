@@ -11,6 +11,66 @@ struct state_t{
 	double y = 0;
 	double angle = 0;
 };
+/*
+void mixer_update(void *arg){
+	Motor left(7);
+	Motor right(1, true);
+	while(true){
+		Mixer *mixer = (Mixer *)arg;
+		double max_rpm = 200;
+		double left_target_rpm = (mixer->throttle / 127.0) * max_rpm + mixer->yaw;
+		double right_target_rpm = (mixer->throttle / 127.0) * max_rpm - mixer->yaw;
+		if(left_target_rpm >= 0){
+			left.set_reversed(false);
+			left.move_velocity(left_target_rpm);
+		}
+		else{
+			left.set_reversed(true);
+			left.move_velocity(abs(left_target_rpm));
+		}
+		if(right_target_rpm >= 0){
+			right.set_reversed(true);
+			right.move_velocity(right_target_rpm);
+		}
+		else{
+			right.set_reversed(false);
+			right.move_velocity(abs(right_target_rpm));
+		}
+		delay(20);
+	}
+}
+*/
+class Mixer{
+	public:
+		int yaw = 0; //-127 -> 127
+		int throttle = 0; //-127 -> 127
+		Mixer(const int left_port, const int right_port): left(left_port), right(right_port, true){}
+		void update() {
+			double max_rpm = 200;
+			double left_target_rpm = (throttle / 127.0) * max_rpm + yaw;
+			double right_target_rpm = (throttle / 127.0) * max_rpm - yaw;
+			if(left_target_rpm >= 0){
+				left.set_reversed(false);
+				left.move_velocity(left_target_rpm);
+			}
+			else{
+				left.set_reversed(true);
+				left.move_velocity(abs(left_target_rpm));
+			}
+			if(right_target_rpm >= 0){
+				right.set_reversed(true);
+				right.move_velocity(right_target_rpm);
+			}
+			else{
+				right.set_reversed(false);
+				right.move_velocity(abs(right_target_rpm));
+			}
+		}
+	private:
+		Motor left;
+		Motor right;
+};
+
 /**
  * A callback function for LLEMU's center button.
  *
@@ -73,37 +133,8 @@ void odometry(void *arg){
 		state->y += sin(state->angle) * forward_spd * (update_delay / 1000.0);
 		cout << *tstamp << " -> " << left_rev << ", " << right_rev << " -> " << 360 * (state->angle / (2.0 * M_PI)) << ", " << state->x << ", " << state->y << "\n";
 		delete tstamp;
-		
 		delay(update_delay);
 	}
-	/*while(true){
-		double left_rpm = left.get_actual_velocity();
-		double right_rpm = right.get_actual_velocity();
-		if(left_rpm == PROS_ERR_F || right_rpm == PROS_ERR_F){
-			cout << "MOTOR FAULT\n";
-			return;
-		}
-		cout << "MOTORS ARE FINE\n";
-
-		if (state) {
-		    cout << "State ARE FINE\n";
-		}
-
-		double left_spd = left_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
-		double right_spd = right_rpm * (2 * M_PI * wheel_radius) / 60; //in mm/s
-		double dif_spd = left_spd - right_spd;
-		double angle_rate = dif_spd / (wheel_base_width / 2); //angle rate in millirad/s
-		double forward_spd = (left_spd + right_spd) / 2;
-
-		state->angle += angle_rate * (update_delay / 1000.0);
-		state->x += forward_spd * cos(state->angle);
-		state->y += forward_spd * sin(state->angle);
-		cout << "Angle -> " << (state->angle / (2.0 * M_PI)) * 360.0 << "\n";
-		cout << "Left RPM -> " << left_rpm << "\n";
-		cout << "Right RPM -> " << right_rpm << "\n";
-		pros::c::screen_print(TEXT_MEDIUM, 3, "%lf", (state->angle / (2.0 * M_PI)) * 360.0);
-		delay(update_delay);
-	}*/
 }
 
 void initialize() {
@@ -157,36 +188,11 @@ void autonomous() {}
  */
 void opcontrol() {
 	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	Motor left(7);
-	Motor right(1, true);
+	Mixer mixer(7, 1);
 	while(true){
-		double yaw_mix = master.get_analog(ANALOG_LEFT_X);
-		double throttle = master.get_analog(ANALOG_LEFT_Y); //-127 to 127
-		double max_rpm = 200;
-		//cout << "Yaw mix -> " << yaw_mix << "\n";
-		//cout << "Throttle -> " << throttle << "\n";
-		double left_target_rpm = (throttle / 127.0) * max_rpm + yaw_mix;
-		double right_target_rpm = (throttle / 127.0) * max_rpm - yaw_mix;
-		if(left_target_rpm >= 0){
-			left.set_reversed(false);
-			left.move_velocity(left_target_rpm);
-			//cout << "LEFTRPM >= 0\n";
-		}
-		else{
-			left.set_reversed(true);
-			left.move_velocity(abs(left_target_rpm));
-			//cout << "LEFTRPM < 0\n";
-		}
-		if(right_target_rpm >= 0){
-			right.set_reversed(true);
-			right.move_velocity(right_target_rpm);
-			//cout << "RIGHTRPM >= 0\n";
-		}
-		else{
-			right.set_reversed(false);
-			right.move_velocity(abs(right_target_rpm));
-			//cout << "RIGHTRPM < 0\n";
-		}
+		mixer.yaw = master.get_analog(ANALOG_LEFT_X);
+		mixer.throttle = master.get_analog(ANALOG_LEFT_Y);
+		mixer.update();
 		delay(20);
 	}
 }
