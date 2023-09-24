@@ -117,10 +117,10 @@ class PID{
 				d_v = ((new_velocity_error - old_velocity_error) / (1.0 / update_freq)) * d_g;
 				pros::c::screen_print(TEXT_MEDIUM, 3, "p_v, i_v, d_v -> %f, %f, %f", p_v, i_v, d_v);
 
-				yaw_output = p_a * i_a * d_a;
+				yaw_output = p_a + i_a + d_a;
 				pros::c::screen_print(TEXT_MEDIUM, 4, "PID yaw_output -> %f", yaw_output);
 
-				throttle_output = p_v * i_v * d_v;
+				throttle_output = p_v + i_v + d_v;
 				pros::c::screen_print(TEXT_MEDIUM, 5, "PID throttle_output -> %f", throttle_output);
 
 				cout << "PID Yaw -> " << yaw_output << "\n";
@@ -264,12 +264,15 @@ void opcontrol() {
 	int update_freq = 60;
 	State *state = new State(7, 1, update_freq * 2);
 	Mixer *mixer = new Mixer(7, 1);
-	PID *pid = new PID(0.2, 1, 1, update_freq, mixer, state);
+	PID *pid = new PID(140, 7, 0, update_freq, mixer, state);
 	double angle_rate = 0.5 * M_PI;//rad/s
+	double velocity_rate = 2; //mm/s
 	double pid_rate = 4; //per second
-	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq, pid_rate](){
+	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq, pid_rate, velocity_rate](){
 		while(true){
 			pid->target_angle += angle_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_X) / 127.0);
+			//pid->target_velocity += velocity_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_Y) / 127.0);
+			mixer->throttle = (master.get_analog(ANALOG_LEFT_Y));
 			pid->i_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_X) / 127.0);
 			pid->d_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_Y) / 127.0);
 			pros::c::screen_print(TEXT_MEDIUM, 0, "PID target_angle -> %f", pid->target_angle);
