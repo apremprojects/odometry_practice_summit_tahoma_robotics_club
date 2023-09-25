@@ -64,9 +64,33 @@ class Mixer{
 		int throttle = 0; //-127 -> 127
 		Mixer(const int left_port, const int right_port): left(left_port), right(right_port, true){}
 		void update() {
+			if(yaw > 127){
+				yaw = 127;
+			}
+			else if(yaw < -127){
+				yaw = -127;
+			}
+			if(throttle > 127){
+				throttle = 127;
+			}
+			else if(throttle < -127){
+				throttle = -127;
+			}
 			double max_rpm = 200;
 			double left_target_rpm = (throttle / 127.0) * max_rpm + yaw;
 			double right_target_rpm = (throttle / 127.0) * max_rpm - yaw;
+			if(left_target_rpm > 200){
+				left_target_rpm = 200 + yaw;
+			}
+			else if(left_target_rpm < -200){
+				left_target_rpm = -200 + yaw;
+			}
+			if(right_target_rpm > 200){
+				right_target_rpm = 200 - yaw;
+			}
+			else if(right_target_rpm < -200){
+				right_target_rpm - -200 - yaw;
+			}
 			if(left_target_rpm >= 0){
 				left.set_reversed(false);
 				left.move_velocity(left_target_rpm);
@@ -94,9 +118,9 @@ class PID{
 		PID(double _p_g, double _i_g, double _d_g, int _update_freq, Mixer *_mixer, State *_state): p_g(_p_g), i_g(_i_g), d_g(_d_g), update_freq(_update_freq), mixer(_mixer), state(_state){}
 		void update(){
 			double old_angle_error = target_angle - state->angle;
-			double old_velocity_error = target_velocity - state->velocity;
+			double old_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
 			double new_angle_error = target_angle - state->angle;
-			double new_velocity_error = target_velocity - state->velocity;
+			double new_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
 			double yaw_output = 0, throttle_output = 0;
 			double p_a, i_a, d_a = 0;
 			double p_v, i_v, d_v;
@@ -105,7 +129,7 @@ class PID{
 				state->update();
 				new_angle_error = target_angle - state->angle;
 
-				new_velocity_error = target_velocity - state -> velocity;
+				new_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
 
 				p_a = new_angle_error * p_g;
 				i_a += (new_angle_error * (1.0 / update_freq)) * i_g;
@@ -127,12 +151,11 @@ class PID{
 				cout << "PID Throttle ->" << throttle_output << "\n";
 
 				mixer->yaw = yaw_output;
-				//mixer->throttle = throttle_output;
+				mixer->throttle = throttle_output;
 				mixer->update();
-
 				state->update();
 				old_angle_error = target_angle - state->angle;
-				old_velocity_error = target_velocity - state->velocity;
+				old_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
 				delay(1000.0 / update_freq);
 			}
 		}
@@ -264,15 +287,15 @@ void opcontrol() {
 	int update_freq = 60;
 	State *state = new State(7, 1, update_freq * 2);
 	Mixer *mixer = new Mixer(7, 1);
-	PID *pid = new PID(140, 7, 0, update_freq, mixer, state);
-	double angle_rate = 0.5 * M_PI;//rad/s
-	double velocity_rate = 2; //mm/s
+	PID *pid = new PID(140, 7, 0, update_freq, mixer, state);// 140, 7, 0 works decently
+	double angle_rate = 2 * M_PI;//rad/s
+	double max_acceleration = 2000; //mm/s
 	double pid_rate = 4; //per second
-	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq, pid_rate, velocity_rate](){
+	auto joystick_update_func = [&angle_rate, &master, pid, mixer, state, update_freq, pid_rate, max_acceleration](){
 		while(true){
 			pid->target_angle += angle_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_X) / 127.0);
-			//pid->target_velocity += velocity_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_Y) / 127.0);
-			mixer->throttle = (master.get_analog(ANALOG_LEFT_Y));
+			pid->target_velocity += max_acceleration * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_LEFT_Y) / 127.0);
+			//mixer->throttle = (master.get_analog(ANALOG_LEFT_Y));
 			pid->i_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_X) / 127.0);
 			pid->d_g += pid_rate * (1.0 / (update_freq * 4)) * (master.get_analog(ANALOG_RIGHT_Y) / 127.0);
 			pros::c::screen_print(TEXT_MEDIUM, 0, "PID target_angle -> %f", pid->target_angle);
