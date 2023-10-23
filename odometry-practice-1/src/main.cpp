@@ -14,7 +14,6 @@ class State{
 		}
 		void update(){
 			double update_delay = 1000.0 / update_freq;
-			int wheel_base_width = 160; //in mm
 			int wheel_radius = 30; //in mm
 			uint32_t *tstamp = new uint32_t(millis());
 			double left_rev = -1;
@@ -29,9 +28,6 @@ class State{
 			} else{
 				right_rev = -right.get_raw_position(tstamp) / 1800.0;
 			}
-			double delta_rev = left_rev - right_rev;
-			double dist_bias = delta_rev * (2 * M_PI * wheel_radius);
-			double arc_circ = wheel_base_width * 2 * M_PI;
 			angle = 2 * M_PI * (imu.get_rotation() / 360.0);
 			double left_rpm = left.get_actual_velocity();
 			if(left.is_reversed()){
@@ -42,7 +38,7 @@ class State{
 				right_rpm = -right_rpm;
 			}
 			double average_rpm = (left_rpm + right_rpm) / 2;
-			velocity = average_rpm * 2 * M_PI * wheel_radius / 60;
+			velocity = average_rpm * 0.5 * M_PI * wheel_radius / 60.0;
 
 			x += cos(angle) * velocity * (update_delay / 1000.0);
 			y += sin(angle) * velocity * (update_delay / 1000.0);
@@ -162,7 +158,7 @@ class PID{
 				state->update();
 				old_angle_error = target_angle - state->angle;
 				old_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
-				delay(1000.0 / update_freq);
+				delay(1000 / update_freq);
 			}
 		}
 		double p_g, i_g, d_g;
@@ -178,7 +174,7 @@ class Robot{
 		Robot(const double start_angle, const double start_x, const double start_y, const double _update_freq) : update_freq(_update_freq){
 			state = new State(7, 1, 2, update_freq);
 			mixer = new Mixer(7, 1);
-			pid = new PID(140, 0.4, 3, update_freq, mixer, state);
+			pid = new PID(140, 0, 3, update_freq, mixer, state);
 		}
 		~Robot(){
 			delete state;
@@ -212,19 +208,22 @@ class Robot{
 				this->set_velocity(max_velocity, false);
 				this->set_angle(get_angle(this->state->x, this->state->y, end_x, end_y), true);	
 				while(get_distance(this->state->x, this->state->y, end_x, end_y) > 10){
-					//cout << "Cruising\n";
 					this->set_angle(get_angle(this->state->x, this->state->y, end_x, end_y), true);
 					delay(20);
 				}
 				this->set_velocity(0, false);
 				return;
 			};
-			Task goto_task(goto_func);
+			if(!blocking){
+				Task goto_task(goto_func);
+			}
+			else{
+				goto_func();
+			}
 		}
 		void update(){
 			pid->update();
 		}
-	private:
 		double get_angle(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return atan2(end_y - cur_y, end_x - cur_x);
 		}
@@ -317,12 +316,12 @@ void opcontrol() {
 	double max_velocity = 700;
 	double pid_rate = 4; //per second
 	Robot *robot = new Robot(0, 0, 0, update_freq);
-	auto update_func = [robot, &master](){
-		delay(1000);
-		while(true){
-			robot->set_angle(2 * M_PI * (master.get_analog(ANALOG_LEFT_X) / 127.0), false);
-			robot->set_velocity(700 * (master.get_analog(ANALOG_LEFT_Y) / 127.0), false);
-		}
+	auto update_func = [&master, max_acceleration, angle_rate, robot](){
+		delay(100);
+		robot->goto_pos(600, 1000, 1000, 0, true);
+		robot->goto_pos(600, 1000, 1000, 1000, true);
+		robot->goto_pos(600, 1000, 0, 1000, true);
+		robot->goto_pos(600, 1000, 0, 0, true);
 		//robot->set_velocity(2000, false);
 		//delay(2000);
 		//robot->set_angle(M_PI / 2.0, false);
@@ -330,7 +329,8 @@ void opcontrol() {
 		//robot->set_velocity(0, false);
 		return;
 	};
+
 	Task update_task(update_func);
 	robot->update();
-	delete robot;
+	//delete robot;
 }
