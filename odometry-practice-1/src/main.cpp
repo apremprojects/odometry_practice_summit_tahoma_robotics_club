@@ -1,173 +1,13 @@
 #define _USE_MATH_DEFINES
 #include "main.h"
+#include "mixer.h"
+#include "state.h"
+#include "pid.h"
 #include <vector>
 #include <iostream>
 #include <cmath>
 using namespace pros;
 using namespace std;
-
-class State{
-	public:
-		State(const int left_port, const int right_port, const int imu_port, const int _update_freq): left(left_port), right(right_port), imu(imu_port), update_freq(_update_freq){
-			imu.reset(true);
-			imu.set_rotation(0);
-		}
-		void update(){
-			double update_delay = 1000.0 / update_freq;
-			int wheel_radius = 30; //in mm
-			uint32_t *tstamp = new uint32_t(millis());
-			double left_rev = -1;
-			if(!left.is_reversed()){
-				left_rev = left.get_raw_position(tstamp) / 1800.0;
-			} else{
-				left_rev = -left.get_raw_position(tstamp) / 1800.0;
-			}
-			double right_rev = -1;
-			if(right.is_reversed()){
-				right_rev = right.get_raw_position(tstamp) / 1800.0;
-			} else{
-				right_rev = -right.get_raw_position(tstamp) / 1800.0;
-			}
-			angle = 2 * M_PI * (imu.get_rotation() / 360.0);
-			double left_rpm = left.get_actual_velocity();
-			if(left.is_reversed()){
-				left_rpm = -left_rpm;
-			}
-			double right_rpm = right.get_actual_velocity();
-			if(!right.is_reversed()){
-				right_rpm = -right_rpm;
-			}
-			double average_rpm = (left_rpm + right_rpm) / 2;
-			velocity = average_rpm * 0.5 * M_PI * wheel_radius / 60.0;
-
-			x += cos(angle) * velocity * (update_delay / 1000.0);
-			y += sin(angle) * velocity * (update_delay / 1000.0);
-			pros::c::screen_print(TEXT_MEDIUM, 6, "X, Y -> %f, %f", x, y);
-
-			//cout << *tstamp << " -> " << left_rev << ", " << right_rev << " -> " << 360 * (angle / (2.0 * M_PI)) << ", " << x << ", " << y << "\n";
-			delete tstamp;
-		}
-		double x = 0;
-		double y = 0;
-		double velocity = 0;
-		double angle = 0;
-		Motor left;
-		Motor right;
-		pros::Imu imu;
-	private:
-		int update_freq;
-};
-
-class Mixer{
-	public:
-		int yaw = 0; //-127 -> 127
-		int throttle = 0; //-127 -> 127
-		Mixer(const int left_port, const int right_port): left(left_port), right(right_port, true){}
-		void update() {
-			if(yaw > 127){
-				yaw = 127;
-			}
-			else if(yaw < -127){
-				yaw = -127;
-			}
-			if(throttle > 127){
-				throttle = 127;
-			}
-			else if(throttle < -127){
-				throttle = -127;
-			}
-			double max_rpm = 200;
-			double left_target_rpm = (throttle / 127.0) * max_rpm + yaw;
-			double right_target_rpm = (throttle / 127.0) * max_rpm - yaw;
-			if(left_target_rpm > 200){
-				left_target_rpm = 200 + yaw;
-			}
-			else if(left_target_rpm < -200){
-				left_target_rpm = -200 + yaw;
-			}
-			if(right_target_rpm > 200){
-				right_target_rpm = 200 - yaw;
-			}
-			else if(right_target_rpm < -200){
-				right_target_rpm - -200 - yaw;
-			}
-			if(left_target_rpm >= 0){
-				left.set_reversed(false);
-				left.move_velocity(left_target_rpm);
-			}
-			else{
-				left.set_reversed(true);
-				left.move_velocity(abs(left_target_rpm));
-			}
-			if(right_target_rpm >= 0){
-				right.set_reversed(true);
-				right.move_velocity(right_target_rpm);
-			}
-			else{
-				right.set_reversed(false);
-				right.move_velocity(abs(right_target_rpm));
-			}
-		}
-	private:
-		Motor left;
-		Motor right;
-};
-
-class PID{
-	public:
-		PID(double _p_g, double _i_g, double _d_g, int _update_freq, Mixer *_mixer, State *_state): p_g(_p_g), i_g(_i_g), d_g(_d_g), update_freq(_update_freq), mixer(_mixer), state(_state){}
-		void update(){
-			double old_angle_error = target_angle - state->angle;
-			double old_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
-			double new_angle_error = target_angle - state->angle;
-			double new_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
-			double yaw_output = 0, throttle_output = 0;
-			double p_a, i_a, d_a = 0;
-			double p_v, i_v, d_v;
-			while(true){
-				pros::c::screen_print(TEXT_MEDIUM, 7, "p_g, i_g, d_g -> %f, %f, %f", p_g, i_g, d_g);
-				state->update();
-				pros::c::screen_print(TEXT_MEDIUM, 8, "Target Velocity -> %f", target_velocity);
-				pros::c::screen_print(TEXT_MEDIUM, 9, "Actual Velocity -> %f", state->velocity);
-				new_angle_error = target_angle - state->angle;
-
-				new_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
-
-				p_a = new_angle_error * p_g;
-				i_a += (new_angle_error * (1.0 / update_freq)) * i_g;
-				d_a = ((new_angle_error - old_angle_error) / (1.0 / update_freq)) * d_g;
-				pros::c::screen_print(TEXT_MEDIUM, 2, "p_a, i_a, d_a -> %f, %f, %f", p_a, i_a, d_a);
-
-				p_v = new_velocity_error * p_g;
-				i_v += (new_velocity_error * (1.0 / update_freq)) * i_g;
-				d_v = ((new_velocity_error - old_velocity_error) / (1.0 / update_freq)) * d_g;
-				pros::c::screen_print(TEXT_MEDIUM, 3, "p_v, i_v, d_v -> %f, %f, %f", p_v, i_v, d_v);
-
-				yaw_output = p_a + i_a + d_a;
-				pros::c::screen_print(TEXT_MEDIUM, 4, "PID yaw_output -> %f", yaw_output);
-
-				throttle_output = p_v + i_v + d_v;
-				pros::c::screen_print(TEXT_MEDIUM, 5, "PID throttle_output -> %f", throttle_output);
-
-				//cout << "PID Yaw -> " << yaw_output << "\n";
-				//cout << "PID Throttle ->" << throttle_output << "\n";
-
-				mixer->yaw = yaw_output;
-				mixer->throttle = throttle_output;
-				mixer->update();
-				state->update();
-				old_angle_error = target_angle - state->angle;
-				old_velocity_error = (target_velocity / 1000.0) - (state->velocity / 1000.0);
-				delay(1000 / update_freq);
-			}
-		}
-		double p_g, i_g, d_g;
-		double target_angle = 0;
-		double target_velocity = 0;
-		int update_freq; //hz
-		Mixer *mixer;
-		State *state;
-};
 
 class Robot{
 	public:
@@ -184,7 +24,7 @@ class Robot{
 		void set_angle(const double new_angle, const bool blocking){
 			pid->target_angle = new_angle;
 			if(blocking){
-				//wait until the robot reaches the target angle, check every 5ms
+				//wait until the robot reaches the target angle, check every 20ms
 				while(abs(get_angle() - new_angle) > 0.1){
 					delay(20);
 				}
