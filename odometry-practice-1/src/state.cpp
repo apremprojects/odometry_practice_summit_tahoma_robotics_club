@@ -21,7 +21,9 @@ void State::update(){
     } else{
         right_rev = -right.get_raw_position(tstamp) / 1800.0;
     }
+    mutex.take(TIMEOUT_MAX);
     angle = 2 * M_PI * (imu.get_rotation() / 360.0);
+    mutex.give();
     double left_rpm = left.get_actual_velocity();
     if(left.is_reversed()){
         left_rpm = -left_rpm;
@@ -31,13 +33,11 @@ void State::update(){
         right_rpm = -right_rpm;
     }
     double average_rpm = (left_rpm + right_rpm) / 2;
+    mutex.take(TIMEOUT_MAX);
     velocity = average_rpm * 0.5 * M_PI * wheel_radius / 60.0;
-
     x += cos(angle) * velocity * (update_delay / 1000.0);
     y += sin(angle) * velocity * (update_delay / 1000.0);
-    pros::c::screen_print(TEXT_MEDIUM, 6, "X, Y -> %f, %f", x, y);
-
-    //cout << *tstamp << " -> " << left_rev << ", " << right_rev << " -> " << 360 * (angle / (2.0 * M_PI)) << ", " << x << ", " << y << "\n";
+    mutex.give();
     delete tstamp;
 }
 

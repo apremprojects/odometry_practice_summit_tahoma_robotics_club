@@ -1,5 +1,6 @@
 #include "mixer.h"
 void Mixer::update() {
+    mutex.take(TIMEOUT_MAX);
     if(yaw > 127){
         yaw = 127;
     }
@@ -27,6 +28,7 @@ void Mixer::update() {
     else if(right_target_rpm < -200){
         right_target_rpm - -200 - yaw;
     }
+    mutex.give();
     if(left_target_rpm >= 0){
         left.set_reversed(false);
         left.move_velocity(left_target_rpm);

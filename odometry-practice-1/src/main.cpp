@@ -6,20 +6,33 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
+#include <queue>
 using namespace pros;
 using namespace std;
 
-class Robot{
+struct MotionCmd{
+	MotionCmd(const double _max_velocity, const double _a_time, const double _end_x, const double _end_y): max_velocity(_max_velocity), a_time(_a_time), end_x(_end_x), end_y(_end_y){}
+	double max_velocity;
+	double a_time;
+	double end_x;
+	double end_y;
+};
+
+class Robot {
 	public:
 		Robot(const double start_angle, const double start_x, const double start_y, const double _update_freq) : update_freq(_update_freq){
 			state = new State(7, 1, 2, update_freq);
 			mixer = new Mixer(7, 1);
 			pid = new PID(140, 0, 3, update_freq, mixer, state);
+			cout << "Robot constructor\n";
+			goto_task = new Task(goto_func);
 		}
 		~Robot(){
+			goto_task->remove();
 			delete state;
 			delete mixer;
 			delete pid;
+			delete goto_task;
 		}
 		void set_angle(const double new_angle, const bool blocking){
 			pid->target_angle = new_angle;
@@ -38,33 +51,23 @@ class Robot{
 			}
 		}
 		double get_angle(){
-			return state->angle;
+			return state->getAngle();
 		}
 		double get_velocity(){
-			return state->velocity;
+			return state->getVelocity();
 		}
 		void goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
-			auto goto_func = [max_velocity, a_time, end_x, end_y, this](){
-				this->set_velocity(max_velocity, false);
-				this->set_angle(get_angle(this->state->x, this->state->y, end_x, end_y), true);	
-				while(get_distance(this->state->x, this->state->y, end_x, end_y) > 10){
-					this->set_angle(get_angle(this->state->x, this->state->y, end_x, end_y), true);
-					delay(20);
-				}
-				this->set_velocity(0, false);
-				return;
-			};
-			if(!blocking){
-				Task goto_task(goto_func);
-			}
-			else{
-				goto_func();
-			}
+			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
+			mutex.take(TIMEOUT_MAX);
+			queue.push(cmd);
+			mutex.give();
+			cout << "about to notify task\n";
+			goto_task->notify();
 		}
 		void update(){
 			pid->update();
 		}
-		double get_angle(const double cur_x, const double cur_y, const double end_x, const double end_y){
+		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return atan2(end_y - cur_y, end_x - cur_x);
 		}
 		double get_distance(const double cur_x, const double cur_y, const double end_x, const double end_y){
@@ -77,24 +80,72 @@ class Robot{
 		State *state; // = new State(7, 1, 2, update_freq * 2);
 		Mixer *mixer; // = new Mixer(7, 1);
 		PID *pid; // = new PID(140, 0, 1, update_freq, mixer, state)
-
+		std::queue<MotionCmd> queue;
+		Task *goto_task;
+		Mutex mutex;
+		double acc_dist = 10;
+		std::function<void()> goto_func = [this](){
+			while(pros::Task::notify_take(true, TIMEOUT_MAX)){ //timeout
+					//execute all commands in queue
+					mutex.take(TIMEOUT_MAX);
+					while(!queue.empty()){
+						MotionCmd cmd = queue.front();
+						queue.pop();
+						mutex.give();
+						//execute motioncmd somehow
+						cout << "Executing motionCmd...\n";
+						double cur_x = state->getX();
+						double cur_y = state->getY();
+						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
+						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
+						while(get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y) > acc_dist){
+							cur_x = state->getX();
+							cur_y = state->getY();
+							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
+							double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
+							set_angle(angle, false);
+							if(abs(angle - state->getAngle()) < 0.5 * M_PI) {
+								set_velocity(cmd.max_velocity, false);
+							}
+							else{
+								set_velocity(0, false);
+							}
+						}
+						set_velocity(0, false);
+						//done executing motion command
+						delay(20);
+						old_dist = cur_dist;
+					}
+					mutex.give();
+			}
+		};
 };
 
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
+class GUI{
+	public:
+		GUI(Robot *_robot):robot(_robot){
+			auto disp_func = [this](){
+				while(true){
+					pros::c::screen_set_eraser(COLOR_BLACK);
+					pros::c::screen_erase();
+					pros::c::screen_print(TEXT_MEDIUM, 0, "Actual Yaw - > %f\n", robot->state->getAngle());
+					pros::c::screen_print(TEXT_MEDIUM, 0, "Target Yaw - > %f\n", robot->state->getAngle());
+					pros::c::screen_set_pen(COLOR_GREEN);
+					pros::c::screen_draw_rect(0, 25, 254, 80);
+					pros::c::screen_set_pen(COLOR_RED);
+					pros::c::screen_draw_rect(127, 25, robot->mixer->getYaw() + 127, 80);
+					delay(20);
+				}
+			};
+			disp_task = new Task(disp_func);
+		}
+		~GUI(){
+
+		}
+	private:
+		Robot *robot;
+		Task *disp_task;
+};
 
 void initialize() {}
 
@@ -156,21 +207,15 @@ void opcontrol() {
 	double max_velocity = 700;
 	double pid_rate = 4; //per second
 	Robot *robot = new Robot(0, 0, 0, update_freq);
+	GUI *gui = new GUI(robot);
 	auto update_func = [&master, max_acceleration, angle_rate, robot](){
-		delay(100);
-		robot->goto_pos(600, 1000, 1000, 0, true);
-		robot->goto_pos(600, 1000, 1000, 1000, true);
-		robot->goto_pos(600, 1000, 0, 1000, true);
-		robot->goto_pos(600, 1000, 0, 0, true);
-		//robot->set_velocity(2000, false);
-		//delay(2000);
-		//robot->set_angle(M_PI / 2.0, false);
-		//delay(2000);
-		//robot->set_velocity(0, false);
+		robot->goto_pos(600, 1000, 1000, 0, false);
+		robot->goto_pos(600, 1000, 1000, 1000, false);
+		robot->goto_pos(600, 1000, 0, 1000, false);
+		robot->goto_pos(600, 1000, 0, 0, false);
 		return;
 	};
-
 	Task update_task(update_func);
 	robot->update();
-	//delete robot;
+	delete robot;
 }
