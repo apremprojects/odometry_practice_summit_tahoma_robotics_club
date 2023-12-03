@@ -1,48 +1,45 @@
 #include "mixer.h"
+#include <algorithm>
 void Mixer::update() {
     mutex.take(TIMEOUT_MAX);
-    if(yaw > 127){
-        yaw = 127;
-    }
-    else if(yaw < -127){
-        yaw = -127;
-    }
-    if(throttle > 127){
-        throttle = 127;
-    }
-    else if(throttle < -127){
-        throttle = -127;
-    }
-    double max_rpm = 200;
-    double left_target_rpm = (throttle / 127.0) * max_rpm + yaw;
-    double right_target_rpm = (throttle / 127.0) * max_rpm - yaw;
-    if(left_target_rpm > 200){
-        left_target_rpm = 200 + yaw;
-    }
-    else if(left_target_rpm < -200){
-        left_target_rpm = -200 + yaw;
-    }
-    if(right_target_rpm > 200){
-        right_target_rpm = 200 - yaw;
-    }
-    else if(right_target_rpm < -200){
-        right_target_rpm - -200 - yaw;
-    }
+    std::clamp(yaw, -127, 127);
+    std::clamp(throttle, -127, 127);
+    double yaw_rpm = (yaw / 127.0) * max_yaw_rpm;
+    double throttle_rpm = max_throttle_rpm * (throttle / 127.0);
+    double left_target_rpm = throttle_rpm + yaw_rpm;
+    double right_target_rpm = throttle_rpm - yaw_rpm;
     mutex.give();
-    if(left_target_rpm >= 0){
-        left.set_reversed(false);
-        left.move_velocity(left_target_rpm);
+    //std::cout << left_target_rpm << ", " << right_target_rpm << "\n";
+    if(left_target_rpm <= 0){
+        left_one.set_reversed(false);
+        left_two.set_reversed(false);
+        left_three.set_reversed(false);
+        left_one.move_velocity(-left_target_rpm);
+        left_two.move_velocity(-left_target_rpm);
+        left_three.move_velocity(-left_target_rpm);
     }
     else{
-        left.set_reversed(true);
-        left.move_velocity(abs(left_target_rpm));
+        left_one.set_reversed(true);
+        left_two.set_reversed(true);
+        left_three.set_reversed(true);
+        left_one.move_velocity(left_target_rpm);
+        left_two.move_velocity(left_target_rpm);
+        left_three.move_velocity(left_target_rpm);
     }
-    if(right_target_rpm >= 0){
-        right.set_reversed(true);
-        right.move_velocity(right_target_rpm);
+    if(right_target_rpm <= 0){
+        right_one.set_reversed(true);
+        right_two.set_reversed(true);
+        right_three.set_reversed(true);
+        right_one.move_velocity(-right_target_rpm);
+        right_two.move_velocity(-right_target_rpm);
+        right_three.move_velocity(-right_target_rpm);
     }
     else{
-        right.set_reversed(false);
-        right.move_velocity(abs(right_target_rpm));
+        right_one.set_reversed(false);
+        right_two.set_reversed(false);
+        right_three.set_reversed(false);
+        right_one.move_velocity(right_target_rpm);
+        right_two.move_velocity(right_target_rpm);
+        right_three.move_velocity(right_target_rpm);
     }
 }
