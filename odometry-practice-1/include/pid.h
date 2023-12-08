@@ -46,6 +46,7 @@ class PID{
 			mutex.take(TIMEOUT_MAX);
 			running = new_state;
 			mutex.give();
+			Logger::getDefault()->log("PID -> " + std::to_string(new_state));
 		}
 	private:
 		bool running = true;

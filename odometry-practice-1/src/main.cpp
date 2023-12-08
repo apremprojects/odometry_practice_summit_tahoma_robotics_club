@@ -284,6 +284,8 @@ void competition_initialize() {}
 void autonomous() {
 	Logger *logger = Logger::getDefault();
 	logger->log("void autonomous() -> main.cpp");
+	logger->log("Setting yaw to 0");
+	robot->set_yaw(0);
 	logger->log("Setting throttle to 127");
 	robot->set_throttle(127);
 	delay(3000);
@@ -292,7 +294,13 @@ void autonomous() {
 	delay(300);
 	logger->log("Setting throttle to -127");
 	robot->set_throttle(-127);
+	delay(3000);
+	logger->log("Setting throttle to 0");
+	robot->set_throttle(0);
 	delay(300);
+	logger->log("Setting throttle to 127");
+	robot->set_throttle(127);
+	delay(3000);
 	logger->log("Setting throttle to 0");
 	robot->set_throttle(0);
 }
