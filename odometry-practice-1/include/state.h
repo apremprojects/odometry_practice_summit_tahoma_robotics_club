@@ -47,6 +47,18 @@ class State{
 			mutex.give();
 			return _velocity;
 		}
+		double getLeftRPM(){
+			mutex.take(TIMEOUT_MAX);
+			double _left_rpm = left_rpm;
+			mutex.give();
+			return _left_rpm;
+		}
+		double getRightRPM(){
+			mutex.take(TIMEOUT_MAX);
+			double _right_rpm = right_rpm;
+			mutex.give();
+			return _right_rpm;
+		}
 		double getAngle(){
 			mutex.take(TIMEOUT_MAX);
 			double _angle = angle;
@@ -58,7 +70,6 @@ class State{
 			angle = new_angle;
 			mutex.give();
 		}
-		void initializeImu();
 	private:
 		double x = 0;
 		double y = 0;
@@ -66,13 +77,21 @@ class State{
 		double angle = 0;
 		double start_angle = 0;
 		int update_freq;
-		int imu_port;
 		Motor left_one;
 		Motor left_two;
 		Motor left_three;
 		Motor right_one;
 		Motor right_two;
 		Motor right_three;
-		pros::Imu imu;//issue explanation
+		double left_one_rpm;
+    	double left_two_rpm;
+    	double left_three_rpm;
+		double right_one_rpm;
+   	 	double right_two_rpm;
+    	double right_three_rpm;
+		double left_rpm;
+		double right_rpm;
+		double average_rpm;
+		pros::Imu imu;
 		Mutex mutex;
 };

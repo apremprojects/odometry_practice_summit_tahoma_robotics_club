@@ -15,7 +15,10 @@
  using namespace pros::literals;
 class PID{
 	public:
-		PID(double _p_g, double _i_g, double _d_g, int _update_freq, Mixer *_mixer, State *_state): p_g(_p_g), i_g(_i_g), d_g(_d_g), update_freq(_update_freq), mixer(_mixer), state(_state){}
+		PID(double _p_g, double _i_g, double _d_g, int _update_freq, Mixer *_mixer, State *_state): p_g(_p_g), i_g(_i_g), d_g(_d_g), update_freq(_update_freq), mixer(_mixer), state(_state){
+			Logger *logger = Logger::getDefault();
+			logger->log("PID::PID() -> pid.h");
+		}
 		void update();
 		void setTargetAngle(const double new_target_angle){
 			mutex.take(TIMEOUT_MAX);

@@ -1,4 +1,5 @@
 #include "mixer.h"
+#include "logger.h"
 #include <algorithm>
 void Mixer::update() {
     mutex.take(TIMEOUT_MAX);

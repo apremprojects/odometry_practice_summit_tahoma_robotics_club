@@ -3,6 +3,7 @@
 #define PROS_USE_LITERALS
 
 #include "api.h"
+#include "logger.h"
 
 /**
  * You should add more #includes here
@@ -13,7 +14,16 @@
  using namespace pros::literals;
  class Mixer{
 	public:
-		Mixer(const int left_one_port, const int left_two_port, const int left_three_port, const int right_one_port, const int right_two_port, const int right_three_port): left_one(left_one_port), left_two(left_two_port), left_three(left_three_port), right_one(right_one_port), right_two(right_two_port), right_three(right_three_port){}
+		Mixer(const int left_one_port, const int left_two_port, const int left_three_port, const int right_one_port, const int right_two_port, const int right_three_port): left_one(left_one_port), left_two(left_two_port), left_three(left_three_port), right_one(right_one_port), right_two(right_two_port), right_three(right_three_port){
+			Logger *logger = Logger::getDefault();
+			left_one.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			left_two.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			left_three.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			right_one.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			right_two.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			right_three.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			logger->log("Mixer::Mixer() -> mixer.h");
+		}
 		void update();
 		void setThrottle(const int _throttle){
 			mutex.take(TIMEOUT_MAX);

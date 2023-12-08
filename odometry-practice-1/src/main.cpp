@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include "main.h"
 #include "mixer.h"
+#include "logger.h"
 #include "state.h"
 #include "pid.h"
 #include <vector>
@@ -19,18 +20,12 @@ struct MotionCmd{
 	double end_y;
 };
 
-class LogItem{
-	public:
-		LogItem(const std::string _message, const int _timestamp): message(_message), timestamp(_timestamp){}
-		std::string message;
-		int timestamp;
-};
-
 class Robot {
 	public:
 		Robot(const double start_angle, const double start_x, const double start_y, const int _update_freq) : update_freq(_update_freq){
+			logger = Logger::getDefault();
+			logger->log("Robot::Robot() -> main.cpp");
 			state = new State(1, 2, 3, 8, 9, 10, 7, start_x, start_y, start_angle, update_freq);
-			state->initializeImu();
 			mixer = new Mixer(1, 2, 3, 8, 9, 10);
 			pid = new PID(140, 0, 3, update_freq, mixer, state);
 			pid_task = new Task([this](){pid->update();});
@@ -43,15 +38,17 @@ class Robot {
 			goto_task = new Task(goto_func);
 		}
 		~Robot(){
+			logger->log("~Robot::Robot() -> main.cpp");
 			goto_task->remove();
 			pid_task->remove();
-			//delete state;
+			delete state;
 			delete mixer;
 			delete pid;
 			delete goto_task;
 			delete pid_task;
 		}
 		void set_angle(const double new_angle, const bool blocking){
+			logger->log("Robot::set_angle() -> main.cpp");
 			//enable pid
 			pid->changeRunningState(true);
 			pid->setTargetAngle(new_angle);
@@ -64,6 +61,7 @@ class Robot {
 			return;
 		}
 		void set_velocity(const double new_velocity, const bool blocking){
+			logger->log("Robot::set_velocity() -> main.cpp");
 			//enable pid
 			pid->changeRunningState(true);
 			pid->setTargetVelocity(new_velocity);
@@ -72,26 +70,47 @@ class Robot {
 			}
 		}
 		void set_yaw(const int new_yaw){
+			logger->log("Robot::set_yaw() -> main.cpp");
 			//disable pid
 			pid->changeRunningState(false);
 			mixer->setYaw(new_yaw);
 			mixer->update();
 		}
 		void set_throttle(const int new_throttle){
+			logger->log("Robot::set_throttle() -> main.cpp");
 			//disable pid
 			pid->changeRunningState(false);
 			mixer->setThrottle(new_throttle);
 			mixer->update();
 		}
 		double get_angle(){
+			logger->log("Robot::get_angle() -> main.cpp");
 			return state->getAngle();
 			//return 0;
 		}
 		double get_velocity(){
+			logger->log("Robot::get_velocity() -> main.cpp");
 			return state->getVelocity();
 			//return 0;
 		}
+		double getLeftRPM(){
+			logger->log("Robot::getLeftRPM() -> main.cpp");
+			return state->getLeftRPM();
+		}
+		double getRightRPM(){
+			logger->log("Robot::getRightRPM() -> main.cpp");
+			return state->getRightRPM();
+		}
+		double getX(){
+			logger->log("Robot::getX() -> main.cpp");
+			return state->getX();
+		}
+		double getY(){
+			logger->log("Robot::getY() -> main.cpp");
+			return state->getY();
+		}
 		void goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
+			logger->log("Robot::goto_pos() -> main.cpp");
 			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
 			mutex.take(TIMEOUT_MAX);
 			queue.push(cmd);
@@ -115,6 +134,7 @@ class Robot {
 		Task *goto_task;
 		Task *pid_task;
 		Task *state_task;
+		Logger *logger;
 		Mutex mutex;
 		double acc_dist = 10;
 		std::function<void()> goto_func = [this](){
@@ -126,13 +146,13 @@ class Robot {
 						queue.pop();
 						mutex.give();
 						//execute motioncmd somehow
-						double cur_x = 0;//state->getX();
-						double cur_y = 0; //state->getY();
+						double cur_x = state->getX();
+						double cur_y = state->getY();
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						while(get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y) > acc_dist){
-							cur_x = 0;//state->getX();
-							cur_y = 0;//state->getY();
+							cur_x = state->getX();
+							cur_y = state->getY();
 							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 							double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
 							set_angle(angle, false);
@@ -155,6 +175,8 @@ class Robot {
 class GUI{
 	public:
 		GUI(Robot *_robot):robot(_robot){
+			Logger *logger = Logger::getDefault();
+			logger->log("void GUI::GUI() -> main.cpp");
 			auto disp_func = [this](){
 				while(true){
 					pros::c::screen_set_eraser(COLOR_BLACK);
@@ -180,7 +202,10 @@ class GUI{
 
 class RobotController{
 	public:
-		RobotController(const double _expo, const int _radius, const int _deadzone): expo(_expo), radius(_radius), deadzone(_deadzone), master(E_CONTROLLER_MASTER){}
+		RobotController(const double _expo, const int _radius, const int _deadzone): expo(_expo), radius(_radius), deadzone(_deadzone), master(E_CONTROLLER_MASTER){
+			Logger *logger = Logger::getDefault();
+			logger->log("RobotController::RobotController() -> main.cpp");
+		}
 		int get_raw_yaw(){
 			mutex.take(TIMEOUT_MAX);
 			int v = master.get_analog(ANALOG_LEFT_X);
@@ -220,47 +245,12 @@ class RobotController{
 		pros::Controller master;
 };
 
-class Logger{
-	public:
-		Logger(){
-			//TBD: Determine log system, simply log to cout? Or log to a file?
-			//How would I make the log truly global? Possibly make it a global variable, but then it would be stuck in main? Pass pointers to log using functions?
-			
-			/*
-			00:00:00:001 -> Robot initialized...
-			00:00:00:002 -> Mixer intialized...
-			00:00:00:003 -> State initialized...
-			00:00:00:004 -> PID initialized...
-	    	00:00:00:009 -> IMU Calibration started....
-			00:00:02:300 -> IMU Calibration finished....
-			*/
-			log("Logger initialized...");
-		}
-		void log(const std::string message){
-			mutex.take(TIMEOUT_MAX);
-			items.push(LogItem(message, millis()));
-			while(!items.empty()){
-				cout << to_timestamp(items.front().timestamp) << " -> " << items.front().message << "\n";
-				items.pop();
-			}
-			mutex.give();
-		}
-	private:
-		string to_timestamp(const int timestamp){
-			int hh = (timestamp / 3600000) % 24; //hour
-			int mm = (timestamp / 60000) % 60;
-			int ss = (timestamp / 1000) % 60;
-			int ms = timestamp % 1000;
-			return std::to_string(hh) + ":" + std::to_string(mm) + ":" + std::to_string(ss) + ":" + std::to_string(ms);
-		}
-		Mutex mutex;
-		std::queue<LogItem> items;
-};
-
-Logger logger;
-Robot robot(0.5 * M_PI, 0.0, 0.0, 50);
-
-void initialize() {}
+Robot *robot = nullptr;
+void initialize() {
+	Logger *logger = Logger::getDefault();
+	robot = new Robot(0.5 * M_PI, 0.0, 0.0, 50);
+	logger->log("void initialize() -> main.cpp");
+}
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -292,7 +282,19 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	//TODO: Put autonomous code
+	Logger *logger = Logger::getDefault();
+	logger->log("void autonomous() -> main.cpp");
+	logger->log("Setting throttle to 127");
+	robot->set_throttle(127);
+	delay(3000);
+	logger->log("Setting throttle to 0");
+	robot->set_throttle(0);
+	delay(300);
+	logger->log("Setting throttle to -127");
+	robot->set_throttle(-127);
+	delay(300);
+	logger->log("Setting throttle to 0");
+	robot->set_throttle(0);
 }
 
 /**
@@ -309,20 +311,14 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	cout << "Beginning OpControl\n";
-	logger.log("Beginning Opcontrol");
-	//TODO: ADD OPCONTROL CODE
-	//robot.update();
-	logger.log("Ran robot update");
+	Logger *logger = Logger::getDefault();
+	logger->log("void opcontrol() -> main.cpp");
 	RobotController controller(0.2, 127, 3);
-	logger.log("Created RobotController");
 	while(true){
 		int raw_yaw = controller.get_raw_yaw();
 		int raw_throttle = controller.get_raw_throttle();
-		robot.set_yaw(raw_yaw);
-		robot.set_throttle(raw_throttle);
-		logger.log(to_string(robot.get_angle()) + ", " + to_string(robot.get_velocity()));
-		//logger.log("hello");
+		robot->set_yaw(raw_yaw);
+		robot->set_throttle(raw_throttle);
 		delay(20);
 	}
 }
