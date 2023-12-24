@@ -6,11 +6,7 @@
 #include "mixer.h"
 #include "state.h"
 #include <mutex>
-/**
- * You should add more #includes here
- */
-//#include "okapi/api.hpp"
-//#include "pros/api_legacy.h"
+#include <string>
  using namespace pros;
  using namespace pros::literals;
 class PID{
@@ -44,7 +40,11 @@ class PID{
 		}
 		void changeRunningState(const bool new_state){
 			mutex.take(TIMEOUT_MAX);
-			running = new_state;
+			if(running!=new_state){
+				mixer->setBrakeMode(new_state);
+				running = new_state;
+				Logger::getDefault()->log(std::to_string(running), PID_STATUS);
+			}
 			mutex.give();
 		}
 	private:

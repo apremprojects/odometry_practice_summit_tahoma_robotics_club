@@ -328,6 +328,7 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
+	/*
 	Logger *logger = Logger::getDefault();
 	logger->log("void autonomous()", FUNCTION_CALL);
 	robot->set_yaw(0);
@@ -335,6 +336,7 @@ void autonomous() {
 	robot->set_throttle(127);
 	delay(1000);
 	robot->set_throttle(0);
+	*/
 }
 
 /**

@@ -19,6 +19,24 @@
 			logger->log("Mixer::Mixer() -> mixer.h", FUNCTION_CALL);
 		}
 		void update();
+		void setBrakeMode(const bool b){
+			if(!b){
+				hal->get_left_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->get_left_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->get_left_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->get_right_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->get_right_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->get_right_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			}
+			else{
+				hal->get_left_one().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->get_left_two().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->get_left_three().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->get_right_one().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->get_right_two().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->get_right_three().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+			}
+		}
 		void setThrottle(const int _throttle){
 			mutex.take(TIMEOUT_MAX);
 			throttle = _throttle;

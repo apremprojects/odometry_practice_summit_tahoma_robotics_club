@@ -13,18 +13,17 @@ State::State(HAL *_hal, const double start_x, const double start_y, const double
 }
 
 void State::update(){
-    double update_delay = 1000.0 / update_freq;
-    double wheel_radius = 30; //in mm
-    uint32_t *tstamp = new uint32_t(millis());
+    static double update_delay = 1000.0 / update_freq;
+    static double wheel_radius = 35; //in mm
     mutex.take(TIMEOUT_MAX);
     angle = start_angle - (M_PI * (hal->get_imu().get_rotation() / 180.0));
     if(!isForward){
         angle += M_PI;
     }
     mutex.give();
-    left_one_rpm = -hal->get_left_one().get_actual_velocity();
-    left_two_rpm = -hal->get_left_two().get_actual_velocity();
-    left_three_rpm = -hal->get_left_three().get_actual_velocity();
+    left_one_rpm = -hal->get_left_one().get_actual_velocity() * (3/5);
+    left_two_rpm = -hal->get_left_two().get_actual_velocity() * (3/5);
+    left_three_rpm = -hal->get_left_three().get_actual_velocity() * (3/5);
     if(hal->get_left_one().is_reversed()){
         left_one_rpm = -left_one_rpm;
     }
@@ -58,6 +57,5 @@ void State::update(){
     x += cos(angle) * velocity * (update_delay / 1000.0);
     y += sin(angle) * velocity * (update_delay / 1000.0);
     mutex.give();
-    delete tstamp;
 }
 

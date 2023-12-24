@@ -5,8 +5,8 @@ void Mixer::update() {
     mutex.take(TIMEOUT_MAX);
     yaw = std::clamp(yaw, -127, 127);
     throttle = std::clamp(throttle, -127, 127);
-    double yaw_rpm = (yaw / 127.0) * max_yaw_rpm;
-    double throttle_rpm = max_throttle_rpm * (throttle / 127.0);
+    double yaw_rpm = (yaw / 127.0) * max_yaw_rpm * (5/3);
+    double throttle_rpm = max_throttle_rpm * (throttle / 127.0) * (5/3);
     if(!isForward){
         throttle_rpm = -throttle_rpm;
         yaw_rpm = -yaw_rpm;
