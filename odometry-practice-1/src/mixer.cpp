@@ -3,44 +3,22 @@
 #include <algorithm>
 void Mixer::update() {
     mutex.take(TIMEOUT_MAX);
-    std::clamp(yaw, -127, 127);
-    std::clamp(throttle, -127, 127);
+    yaw = std::clamp(yaw, -127, 127);
+    throttle = std::clamp(throttle, -127, 127);
     double yaw_rpm = (yaw / 127.0) * max_yaw_rpm;
     double throttle_rpm = max_throttle_rpm * (throttle / 127.0);
+    if(!isForward){
+        throttle_rpm = -throttle_rpm;
+        yaw_rpm = -yaw_rpm;
+    }
     double left_target_rpm = throttle_rpm + yaw_rpm;
     double right_target_rpm = throttle_rpm - yaw_rpm;
     mutex.give();
-    //std::cout << left_target_rpm << ", " << right_target_rpm << "\n";
-    if(left_target_rpm <= 0){
-        left_one.set_reversed(false);
-        left_two.set_reversed(false);
-        left_three.set_reversed(false);
-        left_one.move_velocity(-left_target_rpm);
-        left_two.move_velocity(-left_target_rpm);
-        left_three.move_velocity(-left_target_rpm);
-    }
-    else{
-        left_one.set_reversed(true);
-        left_two.set_reversed(true);
-        left_three.set_reversed(true);
-        left_one.move_velocity(left_target_rpm);
-        left_two.move_velocity(left_target_rpm);
-        left_three.move_velocity(left_target_rpm);
-    }
-    if(right_target_rpm <= 0){
-        right_one.set_reversed(true);
-        right_two.set_reversed(true);
-        right_three.set_reversed(true);
-        right_one.move_velocity(-right_target_rpm);
-        right_two.move_velocity(-right_target_rpm);
-        right_three.move_velocity(-right_target_rpm);
-    }
-    else{
-        right_one.set_reversed(false);
-        right_two.set_reversed(false);
-        right_three.set_reversed(false);
-        right_one.move_velocity(right_target_rpm);
-        right_two.move_velocity(right_target_rpm);
-        right_three.move_velocity(right_target_rpm);
-    }
+    hal->get_left_one().move_velocity(left_target_rpm);
+    hal->get_left_two().move_velocity(left_target_rpm);
+    hal->get_left_three().move_velocity(left_target_rpm);
+    hal->get_right_one().move_velocity(right_target_rpm);
+    hal->get_right_two().move_velocity(right_target_rpm);
+    hal->get_right_three().move_velocity(right_target_rpm);
+    //if left rpm or right rpm > 200, then find the max rpm (std::max(left_rpm. right_rpm)), then multiply left_rpm and right_rpm by 200/max_rpm
 }
