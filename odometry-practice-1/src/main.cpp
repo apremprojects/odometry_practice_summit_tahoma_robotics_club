@@ -3,13 +3,14 @@
 #include "mixer.h"
 #include "logger.h"
 #include "hal.h"
+#include "warnings.h"
 #include "state.h"
 #include "pid.h"
-#include <vector>
 #include <iostream>
 #include <cmath>
 #include <string>
-#include <queue>
+#include <list>
+#include <utility>
 using namespace pros;
 
 struct MotionCmd{
@@ -20,20 +21,27 @@ struct MotionCmd{
 	double end_y;
 };
 
+struct Status{
+	Status(const bool b): done(b){}
+	bool done = false;
+};
+
 class Robot {
 	public:
 		Robot(const double start_angle, const double start_x, const double start_y, const int _update_freq) : update_freq(_update_freq){
 			logger = Logger::getDefault();
 			logger->log("Robot::Robot()", FUNCTION_CALL);
-			hal = new HAL(16, 5, 4, 1, 2, 3, 8, 9, 10, 7);
-			state = new State(hal, start_x, start_y, start_angle, update_freq);
+			hal = new HAL(2, 1, 5, 1, 2, 3, 8, 9, 10, 7);
 			mixer = new Mixer(hal);
-			pid = new PID(140, 0, 3, update_freq, mixer, state);
+			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
+			pid = new PID(72, 0, 0, update_freq, mixer, state);
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
+					uint32_t st = millis();
 					state->update();
-					delay(1000/update_freq);
+					uint32_t et = millis();
+					delay(1000 / update_freq - (et-st));
 				}
 			});
 			goto_task = new Task(goto_func);
@@ -105,12 +113,16 @@ class Robot {
 		double getY(){
 			return state->getY();
 		}
-		void goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
+		Status& goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
 			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
-			mutex.take(TIMEOUT_MAX);
-			queue.push(cmd);
-			mutex.give();
+			Status status(false);
+			{
+				std::lock_guard<Mutex> lock(mutex);
+				queue.push(cmd);
+				status_queue.push(status);
+			}
 			goto_task->notify();
+			return status_queue.front();
 		}
 		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return atan2(end_y - cur_y, end_x - cur_x);
@@ -123,15 +135,32 @@ class Robot {
 		}
 		void set_control_point(const bool b){
 			logger->log(std::to_string(b), CONTROL_POINT);
-			mutex.take(TIMEOUT_MAX);
-			isForward = b;
-			mixer->set_control_point(isForward);
-			state->set_control_point(isForward);
-			mutex.give();
+			if(b){
+				Warning::getDefault()->raise(0);
+			}
+			else{
+				Warning::getDefault()->revoke(0);
+			}
+			if(!b){
+				Warning::getDefault()->raise(1);
+			}
+			else{
+				Warning::getDefault()->revoke(1);
+			}
+			{
+				std::lock_guard<Mutex> lock(mutex);
+				isForward = b;
+				mixer->set_control_point(b);
+				state->set_control_point(b);
+			}
 		}
 		HAL* get_hal(){
 			return hal;
 		}
+		bool get_control_point(){
+			return isForward;
+		}
+	private:
 		double update_freq = -1;
 		bool isForward = true;
 		State *state; // = new State(7, 1, 2, update_freq * 2);
@@ -139,6 +168,7 @@ class Robot {
 		PID *pid; // = new PID(140, 0, 1, update_freq, mixer, state)
 		HAL *hal;
 		std::queue<MotionCmd> queue;
+		std::queue<Status> status_queue;
 		Task *goto_task;
 		Task *pid_task;
 		Task *state_task;
@@ -147,8 +177,8 @@ class Robot {
 		double acc_dist = 10;
 		std::function<void()> goto_func = [this](){
 			while(pros::Task::notify_take(true, TIMEOUT_MAX)){ //timeout
-					//execute all commands in queue
-					mutex.take(TIMEOUT_MAX);
+				{
+					std::lock_guard<Mutex> lock(mutex);
 					while(!queue.empty()){
 						MotionCmd cmd = queue.front();
 						logger->log(std::to_string(cmd.end_x) + " " + std::to_string(cmd.end_y) + " " + std::to_string(cmd.max_velocity) + " " + std::to_string(cmd.a_time), TARGET_POS_UPDATE);
@@ -157,145 +187,124 @@ class Robot {
 						//execute motioncmd somehow
 						double cur_x = state->getX();
 						double cur_y = state->getY();
+						double p = 0, i = 0, d = 0;
+						double p_g = 2, i_g = 0.001, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						while(get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y) > acc_dist){
+						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
+						double new_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
+						while(cur_dist <= old_dist){
 							cur_x = state->getX();
 							cur_y = state->getY();
 							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-							double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
-							set_angle(angle, false);
-							if(abs(angle - state->getAngle()) < 0.5 * M_PI) {
-								set_velocity(cmd.max_velocity, false);
+							new_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
+							if(abs(new_angle - angle) < 1.0){
+								angle = new_angle;
 							}
 							else{
-								set_velocity(0, false);
+								break;
 							}
+							set_angle(angle, true);
+							p = p_g * cur_dist; //proportioning error
+							i += i_g * cur_dist; //integrating error
+							d = d_g * (cur_dist - old_dist);//derivative of error
+							set_velocity(std::min(p + i + d, cmd.max_velocity), false);
+							delay(20);
 						}
-						set_velocity(0, false);
-						delay(20);
+						set_velocity(0, true);
 						old_dist = cur_dist;
 					}
-					mutex.give();
+					status_queue.front().done = true;
+				}
 			}
 		};
 };
-
-/*Max 5 rows
-
-SDCardStatus | Battery
-Motor1 | Motor2
-Motor3 | Motor4
-Motor5 | Motor6
-IntakeStatus | Catapult
-*/
 
 class GUI{
 	public:
 		GUI(Robot *_robot):robot(_robot){
 			logger = Logger::getDefault();
 			logger->log("GUI::GUI()", FUNCTION_CALL);
-			auto disp_func = [this](){
-				while(true){
-					//remember res is 480x240
-					drawSDCardBox(logger->isFileAvailable());
-					drawBatteryBox(pros::battery::get_capacity());
-					drawMotors(robot->get_hal());
-					//handle warnings, send stuff to controller
-					delay(50);
-				}
-			};
-			disp_task = new Task(disp_func);
-		}
-		~GUI(){
-			disp_task->remove();
 		}
 	private:
 		void drawSDCardBox(const bool is_logging_available){
-			pros::screen::set_pen(COLOR_GREEN);
-			if(!is_logging_available){
-				pros::screen::set_pen(COLOR_RED);
-			}
-			pros::screen::draw_rect(0, 0, 240, 30);//draw a rect for the SDCard Status Box
-			pros::screen::set_pen(COLOR_WHITE);
-			pros::screen::print(TEXT_LARGE, 0, 0, "SDCard Status: " + is_logging_available ? "Available": "Unavailable");
+			pros::screen::print(TEXT_MEDIUM, 0, "Logging: " + is_logging_available ? "Unavailable": "Available");
 		}
 		void drawBatteryBox(const double battery_status){
-			pros::screen::set_pen(COLOR_GREEN);
-			if(battery_status <= 33){
-				pros::screen::set_pen(COLOR_RED);
-			}
-			else if(battery_status <= 66){
-				pros::screen::set_pen(COLOR_YELLOW);
-			}
-			pros::screen::draw_rect(240, 0, 480, 30);//draw a rect for the Battery Status Box
-			pros::screen::set_pen(COLOR_WHITE);
-			pros::screen::print(TEXT_LARGE, 0, 0, "Battery: " + std::to_string(battery_status));
+			std::string m = "Battery: " + std::to_string(battery_status);
+			pros::screen::print(TEXT_MEDIUM, 1, m.c_str());
 		}
 		void drawMotors(const HAL *hal){
-			return;
+			auto temps = robot->get_hal()->get_temperatures();
+			auto rpms = robot->get_hal()->get_rpms();
+			auto torques = robot->get_hal()->get_torques();
+			for(int line = 2; line < temps.size() + 2; line++){
+				std::string m = "Motor #" + std::to_string(line - 2) + " -> " + std::to_string(rpms[line - 2]).substr(0, 4) + " RPM, " + std::to_string(torques[line - 2]).substr(0,4) + " Nm, " + std::to_string(temps[line - 2]).substr(0,4) + "C";
+				pros::screen::print(TEXT_MEDIUM, line, m.c_str());
+			}
 		}
 		Robot *robot;
 		Logger *logger;
 		int current_line = 0;
-		Task *disp_task;
 };
 
 class RobotController{
 	public:
-		RobotController(const double _expo, const int _radius, const int _deadzone): expo(_expo), radius(_radius), deadzone(_deadzone), master(E_CONTROLLER_MASTER){
+		RobotController(const double _expo, const int _radius, const int _deadzone, Robot *robot): expo(_expo), radius(_radius), deadzone(_deadzone), master(E_CONTROLLER_MASTER), update_task(f){
 			Logger *logger = Logger::getDefault();
 			logger->log("RobotController::RobotController()", FUNCTION_CALL);
 		}
+		~RobotController(){
+			update_task.remove();
+		}
 		int get_raw_yaw(){
-			mutex.take(TIMEOUT_MAX);
-			int v = master.get_analog(ANALOG_LEFT_X);
-			mutex.give();
-			return v;
+			return master.get_analog(ANALOG_LEFT_X);
 		}
 		int get_raw_throttle(){
-			mutex.take(TIMEOUT_MAX);
-			int v = master.get_analog(ANALOG_LEFT_Y);
-			mutex.give();
-			return v;
+			return master.get_analog(ANALOG_LEFT_Y);
 		}
 		int get_scaled_yaw(){
-			mutex.take(TIMEOUT_MAX);
-			int raw_yaw = get_raw_yaw();
-			mutex.give();
-			return raw_yaw;
+			double input = get_raw_yaw();
+			return input * input * expo + input * (1 - expo);
 		}
 		int get_scaled_throttle(){
-			mutex.take(TIMEOUT_MAX);
-			int raw_throttle = get_raw_throttle();
-			mutex.give();
-			return raw_throttle;
+			double input = get_raw_throttle();
+			return input * input * expo + input * (1 - expo);
 		}
-		bool getL1(){
-			mutex.take(TIMEOUT_MAX);
-			bool L1 = master.get_digital(DIGITAL_L1);
-			mutex.give();
-			return L1;
+		bool get_L1(){
+			return master.get_digital(DIGITAL_L1);
 		}
-		bool getR1(){
-			mutex.take(TIMEOUT_MAX);
-			bool R1 = master.get_digital(DIGITAL_R1);
-			mutex.give();
-			return R1;
+		bool get_R1(){
+			return master.get_digital(DIGITAL_R1);
+		}
+		bool get_L2(){
+			return master.get_digital(DIGITAL_L2);
+		}
+		bool get_R2(){
+			return master.get_digital(DIGITAL_R2);
+		}
+		bool get_A(){
+			return master.get_digital(DIGITAL_A);
 		}
 	private:
 		double expo;
 		int radius;
 		int deadzone;
-		Mutex mutex;
+		std::function<void()> f = [](){
+			while(true){
+				Warning::getDefault()->update();
+			}
+		};
+		Task update_task;
 		pros::Controller master;
 };
 
 Robot *robot = nullptr;
+
 void initialize() {
-	Logger *logger = Logger::getDefault();
+	Logger::getDefault()->log("void initialize()", FUNCTION_CALL);
 	robot = new Robot(0.5 * M_PI, 0.0, 0.0, 50);
-	logger->log("void initialize()", FUNCTION_CALL);
+	GUI *gui = new GUI(robot);
 }
 
 /**
@@ -328,15 +337,18 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	/*
-	Logger *logger = Logger::getDefault();
-	logger->log("void autonomous()", FUNCTION_CALL);
-	robot->set_yaw(0);
-	robot->set_throttle(0);
-	robot->set_throttle(127);
+	//robot->set_angle(M_PI / 2.0, false);
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	Status &status = robot->goto_pos(1200, 3000, 0, 1200, false);
+	while(!status.done){
+		delay(20);
+		Logger::getDefault()->log("Waiting", DEBUG_MESSAGE);
+	}
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	delay(1000);
-	robot->set_throttle(0);
-	*/
+	exit(1);
+	//robot->goto_pos(1200, 3000, 0, 0, true);
+	//My test track is 1200mm
 }
 
 /**
@@ -353,24 +365,48 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
 	Logger *logger = Logger::getDefault();
 	logger->log("void opcontrol()", FUNCTION_CALL);
-	RobotController controller(0.2, 127, 3);
+	//GUI *gui = new GUI(robot);
+	RobotController controller(0.2, 127, 3, robot);
+	//robot->set_angle(M_PI / 2.0, false);
 	while(true){
 		int raw_yaw = controller.get_raw_yaw();
 		int raw_throttle = controller.get_raw_throttle();
 		robot->set_yaw(raw_yaw);
 		robot->set_throttle(raw_throttle);
-		if(controller.getL1()){
+		if(controller.get_L1()){
 			robot->get_hal()->toggle_left_wing(true);
-		}else{
+		}
+		else{
 			robot->get_hal()->toggle_left_wing(false);
 		}
-		if(controller.getR1()){
+		if(controller.get_R1()){
 			robot->get_hal()->toggle_right_wing(true);
-		}else{
+		}
+		else{
 			robot->get_hal()->toggle_right_wing(false);
 		}
+		if(controller.get_A()){
+			robot->set_control_point(false);
+		}
+		else{
+			robot->set_control_point(true);
+		}
+		if(controller.get_L2()){
+			robot->get_hal()->intake_start(true);
+		}
+		else if(controller.get_R2()){
+			robot->get_hal()->intake_start(false);
+		}
+		else{
+			robot->get_hal()->intake_stop();
+		}
+		//Logger::getDefault()->log(("ticks -> " + std::to_string(robot->get_hal()->get_left_ticks()) + ", " + std::to_string(robot->get_hal()->get_right_ticks())).c_str(), DEBUG_MESSAGE);
+		//Logger::getDefault()->log(("rotation -> " + std::to_string(robot->get_hal()->get_left_rotations()) + ", " + std::to_string(robot->get_hal()->get_right_rotations())).c_str(), DEBUG_MESSAGE);
+		//Logger::getDefault()->log(("velocity -> " + std::to_string(robot->get_hal()->get_left_velocity()) + ", " + std::to_string(robot->get_hal()->get_right_velocity())).c_str(), DEBUG_MESSAGE);
 		delay(20);
 	}
+	//delete gui;
 }

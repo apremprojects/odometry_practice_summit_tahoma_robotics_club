@@ -17,35 +17,28 @@ class PID{
 		}
 		void update();
 		void setTargetAngle(const double new_target_angle){
-			mutex.take(TIMEOUT_MAX);
+			std::lock_guard lock(mutex);
 			target_angle = new_target_angle;
-			mutex.give();
 		}
 		void setTargetVelocity(const double new_target_velocity){
-			mutex.take(TIMEOUT_MAX);
+			std::lock_guard lock(mutex);
 			target_velocity = new_target_velocity;
-			mutex.give();
 		}
 		double getTargetAngle(){
-			mutex.take(TIMEOUT_MAX);
-			double _target_angle = target_angle;
-			mutex.give();
-			return _target_angle;
+			std::lock_guard lock(mutex);
+			return target_angle;
 		}
 		double getTargetVelocity(){
-			mutex.take(TIMEOUT_MAX);
-			double _target_velocity = target_velocity;
-			mutex.give();
-			return _target_velocity;
+			std::lock_guard lock(mutex);
+			return target_velocity;
 		}
 		void changeRunningState(const bool new_state){
-			mutex.take(TIMEOUT_MAX);
+			std::lock_guard lock(mutex);
 			if(running!=new_state){
 				mixer->setBrakeMode(new_state);
 				running = new_state;
 				Logger::getDefault()->log(std::to_string(running), PID_STATUS);
 			}
-			mutex.give();
 		}
 	private:
 		bool running = true;

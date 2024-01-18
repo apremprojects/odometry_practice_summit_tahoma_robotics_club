@@ -10,59 +10,37 @@
 	public:
 		Mixer(HAL *_hal): hal(_hal){
 			Logger *logger = Logger::getDefault();
-			hal->get_left_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-			hal->get_left_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-			hal->get_left_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-			hal->get_right_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-			hal->get_right_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-			hal->get_right_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+			setBrakeMode(pros::E_MOTOR_BRAKE_COAST);
 			logger->log("Mixer::Mixer() -> mixer.h", FUNCTION_CALL);
 		}
 		void update();
 		void setBrakeMode(const bool b){
 			if(!b){
-				hal->get_left_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-				hal->get_left_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-				hal->get_left_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-				hal->get_right_one().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-				hal->get_right_two().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-				hal->get_right_three().set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+				hal->set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 			}
 			else{
-				hal->get_left_one().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-				hal->get_left_two().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-				hal->get_left_three().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-				hal->get_right_one().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-				hal->get_right_two().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-				hal->get_right_three().set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+				hal->set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
 			}
 		}
 		void setThrottle(const int _throttle){
-			mutex.take(TIMEOUT_MAX);
+			std::lock_guard lock(mutex);
 			throttle = _throttle;
-			mutex.give();
 		}
 		void setYaw(const int _yaw){
-			mutex.take(TIMEOUT_MAX);
+			std::lock_guard lock(mutex);
 			yaw = _yaw;
-			mutex.give();
 		}
 		double getThrottle(){
-			mutex.take(TIMEOUT_MAX);
-			double _throttle = throttle;
-			mutex.give();
-			return _throttle;
+			std::lock_guard lock(mutex);
+			return throttle;
 		}
 		double getYaw(){
-			mutex.take(TIMEOUT_MAX);
-			double _yaw = yaw;
-			mutex.give();
-			return _yaw;
+			std::lock_guard lock(mutex);
+			return yaw;
 		}
 		void set_control_point(const bool b){
-			mutex.take(TIMEOUT_MAX);
-			double isForward = b;
-			mutex.give();
+			std::lock_guard lock(mutex);
+			isForward = b;
 		}
 	private:
 		int yaw = 0; //-127 -> 127

@@ -21,8 +21,10 @@ void PID::update(){
             d_v = ((new_velocity_error - old_velocity_error) / (1.0 / update_freq)) * d_g;
             yaw_output = p_a + i_a + d_a;
             throttle_output = p_v + i_v + d_v;
-            mixer->setYaw(yaw_output);
+            mixer->setYaw(-yaw_output);
             mixer->setThrottle(throttle_output);
+            //Logger::getDefault()->log("YAW -> " + std::to_string(-yaw_output), DEBUG_MESSAGE);
+            //Logger::getDefault()->log("THROTTLE -> " + std::to_string(throttle_output), DEBUG_MESSAGE);
             mixer->update();
             old_angle_error = target_angle - state->getAngle();
             old_velocity_error = (target_velocity / 1000.0) - (state->getVelocity() / 1000.0);
