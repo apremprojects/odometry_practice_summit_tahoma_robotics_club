@@ -10,7 +10,6 @@ void Mixer::update() {
         double yaw_rpm = (yaw / 127.0) * max_yaw_rpm;
         double throttle_rpm = max_throttle_rpm * (throttle / 127.0);
         if(!isForward){
-            Logger::getDefault()->log("reversed", DEBUG_MESSAGE);
             throttle_rpm = -throttle_rpm;
             //yaw_rpm = yaw_rpm;
         }

@@ -25,6 +25,10 @@ State::State(HAL *_hal, Mixer *_mixer, const double start_x, const double start_
     z(2) = 0;
     z(3) = start_angle;
     z(4) = start_angle;
+    prev_state.first.setZero();
+    prev_state.second.setZero();
+    new_state.first.setZero();
+    new_state.second.setZero();
     prev_state.first = {start_x, start_y, 0, start_angle-hal->get_imu().get_rotation()};
     prev_state.second = P;
     hal->get_imu().set_rotation(0);

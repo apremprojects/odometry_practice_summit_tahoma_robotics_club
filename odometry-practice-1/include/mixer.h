@@ -45,8 +45,8 @@
 	private:
 		int yaw = 0; //-127 -> 127
 		int throttle = 0; //-127 -> 127
-		double max_throttle_rpm = 200;
-		double max_yaw_rpm = 200;
+		double max_throttle_rpm = 360;
+		double max_yaw_rpm = 360;
 		bool isForward = true;
 		Mutex mutex;
 		HAL *hal;
