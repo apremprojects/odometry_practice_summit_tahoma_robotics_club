@@ -114,20 +114,19 @@ class Robot {
 		double getY(){
 			return state->getY();
 		}
-		Status* goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
+		Status& goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
 			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
-			Status *status = new Status(false);
+			Status status = new Status(false);
 			{
 				std::lock_guard<Mutex> lock(mutex);
 				queue.push(cmd);
-				status_queue.push(status);
+				status_queue.push_back(status);
 			}
 			goto_task->notify();
-			return status_queue.front();
+			return status_queue.back();
 		}
 		void acknowledge(){
-			delete status_queue.front();
-			status_queue.pop();
+			status_queue.pop_front();
 		}
 		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return atan2(end_y - cur_y, end_x - cur_x);
@@ -173,7 +172,7 @@ class Robot {
 		PID *pid; // = new PID(140, 0, 1, update_freq, mixer, state)
 		HAL *hal;
 		std::queue<MotionCmd> queue;
-		std::queue<Status*> status_queue;
+		std::list<Status> status_queue;
 		Task *goto_task;
 		Task *pid_task;
 		Task *state_task;
@@ -219,7 +218,7 @@ class Robot {
 						set_velocity(0, true);
 						old_dist = cur_dist;
 					}
-					status_queue.front()->done = true;
+					status_queue.front().done = true;
 				}
 			}
 		};
@@ -344,19 +343,21 @@ void competition_initialize() {}
 void autonomous() {
 	//robot->set_angle(M_PI / 2.0, false);
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	Status *status;
+	Status status(true);
 	status = robot->goto_pos(3000, 3000, 0, 1200, false);
-	while(!status->done){
+	while(!status.done){
 		delay(20);
-		Logger::getDefault()->log("Waiting", DEBUG_MESSAGE);
+		Logger::getDefault()->log("Traveling to coord", DEBUG_MESSAGE);
 	}
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	robot->acknowledge();
 	status = robot->goto_pos(3000, 3000, 0, 0, false);
-	while(!status->done){
+	while(!status.done){
 		delay(20);
-		Logger::getDefault()->log("Waiting", DEBUG_MESSAGE);
+		Logger::getDefault()->log("Traveling to coord", DEBUG_MESSAGE);
 	}
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	robot->acknowledge();
 	//robot->goto_pos(1200, 3000, 0, 0, true);
 	//My test track is 1200mm
 }
