@@ -35,7 +35,7 @@ class Robot {
 			delay(2000);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
-			pid = new PID(72, 0, 0, update_freq, mixer, state);
+			pid = new PID(40, 0, 0, update_freq, mixer, state);
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
@@ -114,18 +114,21 @@ class Robot {
 		double getY(){
 			return state->getY();
 		}
-		Status& goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
+		Status* goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
 			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
-			Status status = new Status(false);
+			Status *status = new Status(false);
 			{
 				std::lock_guard<Mutex> lock(mutex);
 				queue.push(cmd);
 				status_queue.push_back(status);
 			}
 			goto_task->notify();
-			return status_queue.back();
+			//return status_queue.back();
+			return status;
 		}
 		void acknowledge(){
+			std::lock_guard<Mutex> lock(mutex);
+			delete status_queue.front();
 			status_queue.pop_front();
 		}
 		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y){
@@ -164,6 +167,7 @@ class Robot {
 		bool get_control_point(){
 			return isForward;
 		}
+		std::list<Status*> status_queue;
 	private:
 		double update_freq = -1;
 		bool isForward = true;
@@ -172,7 +176,6 @@ class Robot {
 		PID *pid; // = new PID(140, 0, 1, update_freq, mixer, state)
 		HAL *hal;
 		std::queue<MotionCmd> queue;
-		std::list<Status> status_queue;
 		Task *goto_task;
 		Task *pid_task;
 		Task *state_task;
@@ -197,7 +200,7 @@ class Robot {
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double new_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						while(cur_dist <= old_dist){
+						while(cur_dist <= old_dist || cur_dist > acc_dist){
 							cur_x = state->getX();
 							cur_y = state->getY();
 							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
@@ -216,9 +219,9 @@ class Robot {
 							delay(20);
 						}
 						set_velocity(0, true);
+						status_queue.front()->done = true;
 						old_dist = cur_dist;
 					}
-					status_queue.front().done = true;
 				}
 			}
 		};
@@ -341,27 +344,51 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	//robot->set_angle(M_PI / 2.0, false);
+	//Farside red auton (i.e lower right)
+	/*
+	Basically goes forwards, turns left, and then goes right
+	
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	Status status(true);
-	status = robot->goto_pos(3000, 3000, 0, 1200, false);
-	while(!status.done){
+	robot->get_hal()->intake_start(true); //start intaking
+	Status *status;
+	status = robot->goto_pos(1600, 3000, 0, 1600, false);
+	while(!status->done){
 		delay(20);
-		Logger::getDefault()->log("Traveling to coord", DEBUG_MESSAGE);
+		Logger::getDefault()->log("Traveling to 0, 1600", DEBUG_MESSAGE);
 	}
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	robot->acknowledge();
-	status = robot->goto_pos(3000, 3000, 0, 0, false);
-	while(!status.done){
-		delay(20);
-		Logger::getDefault()->log("Traveling to coord", DEBUG_MESSAGE);
-	}
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	robot->acknowledge();
-	//robot->goto_pos(1200, 3000, 0, 0, true);
-	//My test track is 1200mm
-}
 
+	status = robot->goto_pos(1200, 3000, -600, 1200, false);
+	while(!status->done){
+		delay(20);
+		Logger::getDefault()->log("Traveling to -600, 1200", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);	
+	status = robot->goto_pos(1200, 3000, 600, 1200, false);
+	int st = millis();
+	while(!status->done){
+		Logger::getDefault()->log("Traveling to 600, 1200", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	*/
+
+	//only works blue farside and red farside
+	robot->get_hal()->intake_start(false); //sets the intake to exhaust bc we don't want to intake it (it will be stuck)
+	robot->set_throttle(127); //go forwards
+	robot->set_yaw(-10); //mild left yaw
+	delay(2000); //if it comes in off-axis hopefully it will adjust
+	robot->set_yaw(0); //resetting yaw
+	robot->set_throttle(-127); //going backwards for 300 ms
+	delay(300); 
+	robot->set_throttle(127); //go forwards for 400ms
+	robot->set_yaw(-5);///if it comes in off-axis hopefully it will adjust
+	delay(400);
+	robot->set_throttle(0); //reset
+	robot->set_yaw(0); //reset
+}
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
