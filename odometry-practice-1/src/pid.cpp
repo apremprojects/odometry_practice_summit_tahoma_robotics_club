@@ -3,31 +3,23 @@
 
 void PID::update(){
     double old_angle_error = target_angle - state->getAngle();
-    double old_velocity_error = (target_velocity / 1000.0) - (state->getVelocity() / 1000.0);
     double new_angle_error = target_angle - state->getAngle();
-    double new_velocity_error = (target_velocity / 1000.0) - (state->getVelocity() / 1000.0);
     double yaw_output = 0, throttle_output = 0;
-    double p_a, i_a, d_a = 0;
-    double p_v, i_v, d_v;
+    double p_a = 0, i_a = 0, d_a = 0;
+    double v_rpm_target = 0;
     while(true) {
         if(running){
             new_angle_error = target_angle - state->getAngle();
-            new_velocity_error = (target_velocity / 1000.0) - (state->getVelocity() / 1000.0);
             p_a = new_angle_error * p_g;
             i_a += (new_angle_error * (1.0 / update_freq)) * i_g;
             d_a = ((new_angle_error - old_angle_error) / (1.0 / update_freq)) * d_g;
-            p_v = new_velocity_error * p_g;
-            i_v += (new_velocity_error * (1.0 / update_freq)) * i_g;
-            d_v = ((new_velocity_error - old_velocity_error) / (1.0 / update_freq)) * d_g;
             yaw_output = p_a + i_a + d_a;
-            throttle_output = p_v + i_v + d_v;
+            v_rpm_target = (target_velocity * 60.0) / (2.0 * M_PI * state->wheel_radius);
+            throttle_output = (v_rpm_target / mixer->max_throttle_rpm) * 127.0;
             mixer->setYaw(-yaw_output);
             mixer->setThrottle(throttle_output);
-            //Logger::getDefault()->log("YAW -> " + std::to_string(-yaw_output), DEBUG_MESSAGE);
-            //Logger::getDefault()->log("THROTTLE -> " + std::to_string(throttle_output), DEBUG_MESSAGE);
             mixer->update();
             old_angle_error = target_angle - state->getAngle();
-            old_velocity_error = (target_velocity / 1000.0) - (state->getVelocity() / 1000.0);
         }
         else{
             i_a = 0;

@@ -22,6 +22,7 @@
 #include "api.h"
 #include <mutex>
 #include <cmath>
+#include <fstream>
 #include <string>
 #include <queue>
 using namespace pros;
@@ -37,22 +38,26 @@ class LogItem{
 class Logger{
     public:
 		//logs a message to terminal AND/OR file.
-        void log(const std::string message, const int type);
+        void log(const std::string input_message, const int type);
+		void start();
+		void end();
 		//return true the SD card available, else, returns false
 		bool isFileAvailable(){
 			return is_file_available;
 		}
-		//returns logfile pointer incase I want to do some extremely highthroughput read/write OR read earlier logs
+		//returns logfile reference incase I want to do some extremely highthroughput read/write OR read earlier logs
 		FILE *getFilePtr(){
 			return log_file;
 		}
         static Logger* getDefault();
+		~Logger();
 	private:
-       Logger();
-	   ~Logger();
+		Logger();
+		const char* filename = "/usd/log.log";
  		std::string toTimestamp(const int timestamp);
 		Mutex mutex;
 		std::queue<LogItem> items;
-		bool is_file_available;
-        FILE *log_file;
+		bool is_file_available = false;
+		int logct = 0;
+		FILE *log_file;
  };

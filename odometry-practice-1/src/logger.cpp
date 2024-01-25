@@ -2,24 +2,46 @@
 #include <unistd.h>
 #include <iostream>
 
-Logger::Logger(){
-    log_file = fopen("/usd/log.log", "w+");
-    log("Logger initialized...", DEBUG_MESSAGE);
-    if(log_file != NULL){
-        log("FAT32 SDCard present...", DEBUG_MESSAGE);
+Logger::Logger() {
+    if(pros::usd::is_installed()){
+        log("SD Card installed", DEBUG_MESSAGE);
+        log_file = fopen(filename, "w");
+        setbuf(log_file, NULL);
+        if (log_file == NULL) {
+            perror("SD Card Error -> ");
+        }
+        else {
+            printf("SD Card File Available...");
+            is_file_available = true;
+            for(int i = 0; i < 10000; i++){
+                fputs("here...\n", log_file);
+            }
+
+        }
     }
     else{
-        log("Insert FAT32 SDCard...", DEBUG_MESSAGE);
-        //exit(1);
-        is_file_available = false;
+        log("SD Card not installed", DEBUG_MESSAGE);
     }
 }
 Logger::~Logger(){
     fclose(log_file);
 }
-void Logger::log(const std::string message, const int type){
+
+void Logger::start() {
     std::lock_guard<Mutex> lock(mutex);
-    items.push(LogItem(message, millis()));
+    log_file = fopen(filename, "w");
+    is_file_available = true;
+}
+
+void Logger::end() {
+    std::lock_guard<Mutex> lock(mutex);
+    fclose(log_file);
+    is_file_available = false;
+}
+
+void Logger::log(const std::string input_message, const int type){
+    std::lock_guard<Mutex> lock(mutex);
+    items.push(LogItem(input_message, millis()));
     std::string message_type;
     if(type == FUNCTION_CALL){
         message_type = "FUNCTION_CALL";
@@ -49,7 +71,7 @@ void Logger::log(const std::string message, const int type){
         message_type = "THROTTLE_UPDATE";
     }
     else if(type == YAW_UPDATE){
-            message_type = "YAW_UPDATE";
+        message_type = "YAW_UPDATE";
     }
     else if(type == WARNING){
         message_type = "WARNING";
@@ -71,15 +93,21 @@ void Logger::log(const std::string message, const int type){
     }
     while(!items.empty()){
         std::string message = toTimestamp(items.front().timestamp) + " " + message_type + " " + items.front().message + "\n";
-        std::cout << message;
-        if(log_file != NULL){
-            std::cout << "Logging to file\n";
-            const char *cm = message.c_str();
-            fputs(cm, log_file);
+        if(!is_file_available){
+            std::cout << message;
+        }
+        else{
+            const char* m = message.c_str();
+            fputs(m, log_file);
+        }
+        if(logct % 20 == 0){
+            fflush(log_file);
         }
         items.pop();
+        logct++;
     }
 }
+
 std::string Logger::toTimestamp(const int timestamp){
     int hh = (timestamp / 3600000) % 24; //hour
     int mm = (timestamp / 60000) % 60;

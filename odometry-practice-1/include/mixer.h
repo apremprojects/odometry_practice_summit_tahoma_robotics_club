@@ -15,6 +15,7 @@
 		}
 		void update();
 		void setBrakeMode(const bool b){
+			std::lock_guard lock(mutex);
 			if(!b){
 				hal->set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 			}
@@ -42,11 +43,11 @@
 			std::lock_guard lock(mutex);
 			isForward = b;
 		}
+		const double max_throttle_rpm = 360;
+		const double max_yaw_rpm = 360;
 	private:
 		int yaw = 0; //-127 -> 127
 		int throttle = 0; //-127 -> 127
-		double max_throttle_rpm = 360;
-		double max_yaw_rpm = 360;
 		bool isForward = true;
 		Mutex mutex;
 		HAL *hal;

@@ -29,13 +29,14 @@ struct Status{
 class Robot {
 	public:
 		Robot(const double start_angle, const double start_x, const double start_y, const int _update_freq) : update_freq(_update_freq){
+			delay(3000);
 			logger = Logger::getDefault();
 			logger->log("Robot::Robot()", FUNCTION_CALL);
+			//wait for PROS kernel to do all its init stuff, it isn't ready when global stuff is setup
 			hal = new HAL(2, 1, 5, 1, 2, 3, 8, 9, 10, 7);
-			delay(2000);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
-			pid = new PID(40, 0, 0, update_freq, mixer, state);
+			pid = new PID(40, 0, 4, update_freq, mixer, state);
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
@@ -63,11 +64,15 @@ class Robot {
 			//enable pid
 			pid->changeRunningState(true);
 			pid->setTargetAngle(new_angle);
+			double o_angle = get_angle();
+			double n_angle = get_angle();
 			if(blocking){
 				//wait until the robot reaches the target angle, check every 20ms
-				while(abs(get_angle() - new_angle) > 0.1){
+				n_angle = get_angle();
+				while(abs(n_angle - new_angle) > 0.1){
 					delay(20);
 				}
+				o_angle = n_angle;
 			}
 			return;
 		}
@@ -77,7 +82,7 @@ class Robot {
 			pid->changeRunningState(true);
 			pid->setTargetVelocity(new_velocity);
 			if(blocking){
-				//wait until the robot reaches the target angle, check every 5ms
+				//wait until the robot reaches the target velocity, check every 5ms
 			}
 		}
 		void set_yaw(const int new_yaw){
@@ -195,7 +200,7 @@ class Robot {
 						double cur_x = state->getX();
 						double cur_y = state->getY();
 						double p = 0, i = 0, d = 0;
-						double p_g = 2, i_g = 0.001, d_g = 0;
+						double p_g = 10, i_g = 0.001, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
@@ -309,7 +314,6 @@ class RobotController{
 Robot *robot = nullptr;
 
 void initialize() {
-	Logger::getDefault()->log("void initialize()", FUNCTION_CALL);
 	robot = new Robot(0.5 * M_PI, 0.0, 0.0, 50);
 	GUI *gui = new GUI(robot);
 }
@@ -344,38 +348,35 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	//Farside red auton (i.e lower right)
-	/*
-	Basically goes forwards, turns left, and then goes right
-	
+	//Farside red auton (i.e lower right), Basically goes forwards, turns left, and then goes right
+	Logger::getDefault()->start();
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	robot->get_hal()->intake_start(true); //start intaking
+	//robot->get_hal()->intake_start(true); //start intaking
 	Status *status;
-	status = robot->goto_pos(1600, 3000, 0, 1600, false);
+	status = robot->goto_pos(1000, 3000, 0, 1200, false);
 	while(!status->done){
 		delay(20);
-		Logger::getDefault()->log("Traveling to 0, 1600", DEBUG_MESSAGE);
+		Logger::getDefault()->log("Traveling to 0, 1200", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 
-	status = robot->goto_pos(1200, 3000, -600, 1200, false);
+	status = robot->goto_pos(1000, 3000, -600, 1200, false);
 	while(!status->done){
 		delay(20);
 		Logger::getDefault()->log("Traveling to -600, 1200", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);	
-	status = robot->goto_pos(1200, 3000, 600, 1200, false);
-	int st = millis();
+	status = robot->goto_pos(1000, 3000, 600, 1200, false);
 	while(!status->done){
 		Logger::getDefault()->log("Traveling to 600, 1200", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	*/
-
+	Logger::getDefault()->end();
 	//only works blue farside and red farside
+	/*
 	robot->get_hal()->intake_start(false); //sets the intake to exhaust bc we don't want to intake it (it will be stuck)
 	robot->set_throttle(127); //go forwards
 	robot->set_yaw(-10); //mild left yaw
@@ -388,6 +389,7 @@ void autonomous() {
 	delay(400);
 	robot->set_throttle(0); //reset
 	robot->set_yaw(0); //reset
+	*/
 }
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -405,10 +407,20 @@ void autonomous() {
 void opcontrol() {
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
 	Logger *logger = Logger::getDefault();
+	logger->start();
 	logger->log("void opcontrol()", FUNCTION_CALL);
-	//GUI *gui = new GUI(robot);
 	RobotController controller(0.2, 127, 3, robot);
-	//robot->set_angle(M_PI / 2.0, false);
+	while(!controller.get_A()){
+		int raw_yaw = controller.get_raw_yaw();
+		int raw_throttle = controller.get_raw_throttle();
+		robot->set_angle(raw_yaw * (1.0/127.0) * M_PI, false);
+		delay(20);
+	}
+	robot->set_throttle(0);
+	robot->set_yaw(0);
+	logger->end();
+	return;
+	/*
 	while(true){
 		int raw_yaw = controller.get_raw_yaw();
 		int raw_throttle = controller.get_raw_throttle();
@@ -441,10 +453,8 @@ void opcontrol() {
 		else{
 			robot->get_hal()->intake_stop();
 		}
-		//Logger::getDefault()->log(("ticks -> " + std::to_string(robot->get_hal()->get_left_ticks()) + ", " + std::to_string(robot->get_hal()->get_right_ticks())).c_str(), DEBUG_MESSAGE);
-		//Logger::getDefault()->log(("rotation -> " + std::to_string(robot->get_hal()->get_left_rotations()) + ", " + std::to_string(robot->get_hal()->get_right_rotations())).c_str(), DEBUG_MESSAGE);
-		//Logger::getDefault()->log(("velocity -> " + std::to_string(robot->get_hal()->get_left_velocity()) + ", " + std::to_string(robot->get_hal()->get_right_velocity())).c_str(), DEBUG_MESSAGE);
 		delay(20);
 	}
-	//delete gui;
+	*/
+	//TBD fix the velocity pid and create a pid test system
 }

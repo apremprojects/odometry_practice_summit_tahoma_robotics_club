@@ -67,6 +67,8 @@ class State{
 			std::lock_guard lock(mutex);
 			isForward = b;
 		}
+		const double wheel_radius = 41.275;
+		const double wheelbase_diameter = 300.0;
 	private:
 			/*
 			state is often written as x
@@ -124,8 +126,6 @@ class State{
 		const double start_angle = 0;
 		const int update_freq;
 		const double update_delay = 1000.0 / update_freq;
-    	const double wheel_radius = 41.275;
-		const double wheelbase_diameter = 300.0;
 		//F * prev_state = new_state
 		//Identity Matrix
 		//H * state = measurement
