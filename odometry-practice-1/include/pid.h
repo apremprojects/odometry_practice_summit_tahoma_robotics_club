@@ -41,7 +41,7 @@ class PID{
 			}
 		}
 	private:
-		bool running = true;
+		bool running = false;
 		double p_g, i_g, d_g;
 		double target_angle = 0;
 		double target_velocity = 0;

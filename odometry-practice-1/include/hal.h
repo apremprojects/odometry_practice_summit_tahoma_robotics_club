@@ -8,8 +8,11 @@ using namespace pros;
 using namespace pros::literals;
 class HAL{ //hardware abstraction layer
 	public:
-		HAL(const int _left_wing_triwire_port, const int _right_wing_triwire_port, const int _intake_motor_port, const int _left_one_port, const int _left_two_port, const int _left_three_port, const int _right_one_port, const int _right_two_port, const int _right_three_port, const int _imu_port): left_wing(_left_wing_triwire_port, false), right_wing(_right_wing_triwire_port, false), intake_motor(_intake_motor_port), left_one(_left_one_port, E_MOTOR_GEAR_BLUE, true), left_two(_left_two_port, E_MOTOR_GEAR_BLUE, true), left_three(_left_three_port, E_MOTOR_GEAR_BLUE, true), right_one(_right_one_port, E_MOTOR_GEAR_BLUE), right_two(_right_two_port, E_MOTOR_GEAR_BLUE), right_three(_right_three_port, E_MOTOR_GEAR_BLUE), imu(_imu_port) {
+		HAL(const int _left_wing_triwire_port, const int _right_wing_triwire_port, const int _intake_motor_port, const int _left_one_port, const int _left_two_port, const int _left_three_port, const int _right_one_port, const int _right_two_port, const int _right_three_port, const int _imu_port): left_wing(_left_wing_triwire_port, false), right_wing(_right_wing_triwire_port, false), intake_motor(_intake_motor_port), left_one(_left_one_port, pros::v5::MotorGears::blue), left_two(_left_two_port, pros::v5::MotorGears::blue), left_three(_left_three_port, pros::v5::MotorGears::blue), right_one(_right_one_port, pros::v5::MotorGears::blue), right_two(_right_two_port, pros::v5::MotorGears::blue), right_three(_right_three_port, pros::v5::MotorGears::blue), imu(_imu_port) {
 			Logger::getDefault()->log("HAL::HAL()", FUNCTION_CALL);
+			left_one.set_reversed(true);
+			left_two.set_reversed(true);
+			left_three.set_reversed(true);
 			left_wing.set_value(false);
 			right_wing.set_value(false);
 			uint32_t *tstamp = new uint32_t(millis());
@@ -119,6 +122,6 @@ class HAL{ //hardware abstraction layer
 		bool right_wing_status;
 		bool isIntakingIntaking;
 		int32_t start_left_ticks = 0, start_right_ticks = 0;
-		ADIDigitalOut left_wing;
-		ADIDigitalOut right_wing;
+		pros::adi::DigitalOut left_wing;
+		pros::adi::DigitalOut right_wing;
 };

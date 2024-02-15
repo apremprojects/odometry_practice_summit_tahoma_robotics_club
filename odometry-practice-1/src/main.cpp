@@ -11,6 +11,7 @@
 #include <string>
 #include <list>
 #include <utility>
+#include <csignal>
 using namespace pros;
 
 struct MotionCmd{
@@ -36,7 +37,7 @@ class Robot {
 			hal = new HAL(2, 1, 5, 1, 2, 3, 8, 9, 10, 7);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
-			pid = new PID(40, 0, 4, update_freq, mixer, state);
+			pid = new PID(40, 0, 0, update_freq, mixer, state);
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
@@ -59,9 +60,8 @@ class Robot {
 			delete pid_task;
 			delete state_task;
 		}
-		void set_angle(const double new_angle, const bool blocking){
+		void set_angle(double new_angle, const bool blocking){
 			logger->log(std::to_string(new_angle), TARGET_ANGLE_UPDATE);
-			//enable pid
 			pid->changeRunningState(true);
 			pid->setTargetAngle(new_angle);
 			double o_angle = get_angle();
@@ -82,7 +82,9 @@ class Robot {
 			pid->changeRunningState(true);
 			pid->setTargetVelocity(new_velocity);
 			if(blocking){
-				//wait until the robot reaches the target velocity, check every 5ms
+				while(abs(new_velocity - get_velocity()) < 10.0){
+					delay(20);
+				}
 			}
 		}
 		void set_yaw(const int new_yaw){
@@ -136,8 +138,10 @@ class Robot {
 			delete status_queue.front();
 			status_queue.pop_front();
 		}
-		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y){
-			return atan2(end_y - cur_y, end_x - cur_x);
+		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y, const double angle){
+			const double target_heading = atan2(end_y - cur_y, end_x - cur_x);
+			const double rotations = (angle - target_heading) / (2.0 * M_PI); // turns left
+			return round(rotations) * (2.0 * M_PI) + target_heading;
 		}
 		double get_distance(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return sqrt(pow(end_x - cur_x, 2) + pow(end_y - cur_y, 2));
@@ -186,7 +190,7 @@ class Robot {
 		Task *state_task;
 		Logger *logger;
 		Mutex mutex;
-		double acc_dist = 10;
+		double threshold = 50;
 		std::function<void()> goto_func = [this](){
 			while(pros::Task::notify_take(true, TIMEOUT_MAX)){ //timeout
 				{
@@ -200,32 +204,37 @@ class Robot {
 						double cur_x = state->getX();
 						double cur_y = state->getY();
 						double p = 0, i = 0, d = 0;
-						double p_g = 10, i_g = 0.001, d_g = 0;
+						double p_g = 30, i_g = 0, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						double new_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						while(cur_dist <= old_dist || cur_dist > acc_dist){
+						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+						bool reached = false;
+						while(!reached){
 							cur_x = state->getX();
 							cur_y = state->getY();
 							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-							new_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y);
-							if(abs(new_angle - angle) < 1.0){
-								angle = new_angle;
-							}
-							else{
-								break;
-							}
-							set_angle(angle, true);
+							angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+
 							p = p_g * cur_dist; //proportioning error
 							i += i_g * cur_dist; //integrating error
 							d = d_g * (cur_dist - old_dist);//derivative of error
-							set_velocity(std::min(p + i + d, cmd.max_velocity), false);
+							//if angle error > 0.1 rads ~6 deg stop and try rotating
+							if(abs(get_angle() - angle) < 0.1){
+								set_angle(angle, false);
+								set_velocity(std::min(p + i + d, cmd.max_velocity), false);
+							}
+							else{
+								set_velocity(0, false);
+								set_angle(angle, false);
+							}
+							if(cur_dist <= threshold){
+								reached = true;
+							}
+							old_dist = cur_dist;
 							delay(20);
 						}
-						set_velocity(0, true);
+						set_velocity(0, false);
 						status_queue.front()->done = true;
-						old_dist = cur_dist;
 					}
 				}
 			}
@@ -314,7 +323,7 @@ class RobotController{
 Robot *robot = nullptr;
 
 void initialize() {
-	robot = new Robot(0.5 * M_PI, 0.0, 0.0, 50);
+	robot = new Robot(0.5 * M_PI, 900, 210, 50);
 	GUI *gui = new GUI(robot);
 }
 
@@ -323,7 +332,12 @@ void initialize() {
  * the VEX Competition Switch, following either autonomous or opcontrol. When
  * the robot is enabled, this task will exit.
  */
-void disabled() {}
+void disabled() {
+	Logger::getDefault()->end();
+	Logger::getDefault()->log("logging ended...", DEBUG_MESSAGE);
+	Logger::getDefault()->start();
+	Logger::getDefault()->log("logging restarted...", DEBUG_MESSAGE);
+}
 
 /**
  * Runs after initialize(), and before autonomous when connected to the Field
@@ -348,12 +362,12 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	//Farside red auton (i.e lower right), Basically goes forwards, turns left, and then goes right
-	Logger::getDefault()->start();
+	//CAUTION: I CHANGED THE DEFAULT START POSITION IN THE ROBOT CONSTRUCTOR. ANY WIERD ISSUES, CHECK THERE.
+	/*
+	Square dance
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	//robot->get_hal()->intake_start(true); //start intaking
 	Status *status;
-	status = robot->goto_pos(1000, 3000, 0, 1200, false);
+	status = robot->goto_pos(600, 3000, 0, 1200, false);
 	while(!status->done){
 		delay(20);
 		Logger::getDefault()->log("Traveling to 0, 1200", DEBUG_MESSAGE);
@@ -361,35 +375,89 @@ void autonomous() {
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 
-	status = robot->goto_pos(1000, 3000, -600, 1200, false);
+	status = robot->goto_pos(600, 3000, 1200, 1200, false);
 	while(!status->done){
 		delay(20);
-		Logger::getDefault()->log("Traveling to -600, 1200", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);	
-	status = robot->goto_pos(1000, 3000, 600, 1200, false);
-	while(!status->done){
-		Logger::getDefault()->log("Traveling to 600, 1200", DEBUG_MESSAGE);
+		Logger::getDefault()->log("Traveling to 1200, 1200", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	Logger::getDefault()->end();
-	//only works blue farside and red farside
-	/*
-	robot->get_hal()->intake_start(false); //sets the intake to exhaust bc we don't want to intake it (it will be stuck)
-	robot->set_throttle(127); //go forwards
-	robot->set_yaw(-10); //mild left yaw
-	delay(2000); //if it comes in off-axis hopefully it will adjust
-	robot->set_yaw(0); //resetting yaw
-	robot->set_throttle(-127); //going backwards for 300 ms
-	delay(300); 
-	robot->set_throttle(127); //go forwards for 400ms
-	robot->set_yaw(-5);///if it comes in off-axis hopefully it will adjust
-	delay(400);
-	robot->set_throttle(0); //reset
-	robot->set_yaw(0); //reset
+	
+	status = robot->goto_pos(600, 3000, 1200, 0, false);
+	while(!status->done){
+		delay(20);
+		Logger::getDefault()->log("Traveling to 1200, 0", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	status = robot->goto_pos(600, 3000, 0, 0, false);
+	while(!status->done){
+		delay(20);
+		Logger::getDefault()->log("Traveling to 0, 0", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);*/
+
+	//RED FARSIDE
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	Status *status;
+
+	status = robot->goto_pos(1200, 3000, 900, 1800, false);
+	while(!status->done){
+		delay(20);
+		Logger::getDefault()->log("Traveling to 900, 1800", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	robot->get_hal()->intake_start(true);
+	delay(200);
+
+	status = robot->goto_pos(200, 100, 1200, 1800, false);
+	while(!status->done){
+		delay(5);
+		Logger::getDefault()->log("Traveling to 1200, 1800", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	robot->get_hal()->toggle_right_wing(true);
+	delay(200);
+
+	status = robot->goto_pos(200, 3000, 1500, 1800, false);
+	while(!status->done){
+		delay(20);
+		Logger::getDefault()->log("Traveling to 1500, 1800", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	delay(200);
+
+	status = robot->goto_pos(600, 3000, 810, 1800, false);
+	int st = millis();
+	while(!status->done){
+		if(millis() - st > 1000){
+			robot->get_hal()->intake_start(false);
+		}
+		delay(20);
+		Logger::getDefault()->log("Traveling to 810, 1800", DEBUG_MESSAGE);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	delay(200);
+
+	robot->set_throttle(0);
+	robot->set_yaw(0);
+	delay(200);
+
+	//backup at full throttle for 200ms
+	/*robot->set_throttle(-127);
+	robot->set_yaw(0);
+	delay(200);
+	robot->set_throttle(0);
+	robot->set_yaw(0);
 	*/
+
+
 }
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -404,23 +472,20 @@ void autonomous() {
  * operator control task will be stopped. Re-enabling the robot will restart the
  * task, not resume it from where it left off.
  */
+
+void writeGigabyte(){
+	std::string s(1000000, 'l');
+	for(int i = 0; i < 1000; i++){
+		Logger::getDefault()->log(s, DEBUG_MESSAGE);
+		//delay(100);
+	}
+}
+
 void opcontrol() {
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
 	Logger *logger = Logger::getDefault();
-	logger->start();
 	logger->log("void opcontrol()", FUNCTION_CALL);
 	RobotController controller(0.2, 127, 3, robot);
-	while(!controller.get_A()){
-		int raw_yaw = controller.get_raw_yaw();
-		int raw_throttle = controller.get_raw_throttle();
-		robot->set_angle(raw_yaw * (1.0/127.0) * M_PI, false);
-		delay(20);
-	}
-	robot->set_throttle(0);
-	robot->set_yaw(0);
-	logger->end();
-	return;
-	/*
 	while(true){
 		int raw_yaw = controller.get_raw_yaw();
 		int raw_throttle = controller.get_raw_throttle();
@@ -455,6 +520,5 @@ void opcontrol() {
 		}
 		delay(20);
 	}
-	*/
 	//TBD fix the velocity pid and create a pid test system
 }

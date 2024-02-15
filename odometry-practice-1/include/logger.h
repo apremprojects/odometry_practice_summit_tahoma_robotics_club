@@ -39,8 +39,31 @@ class Logger{
     public:
 		//logs a message to terminal AND/OR file.
         void log(const std::string input_message, const int type);
-		void start();
-		void end();
+		void start(){
+			    if(pros::usd::is_installed()){
+				log("SD Card installed", DEBUG_MESSAGE);
+				log_file = fopen(filename, "a");
+				setbuf(log_file, NULL);
+				if (log_file == NULL) {
+					perror("SD Card Error -> ");
+					is_file_available = false;
+				}
+				else {
+					printf("SD Card File Available...");
+					is_file_available = true;
+				}
+			}
+			else{
+				log("SD Card not installed", DEBUG_MESSAGE);
+				is_file_available = false;
+			}
+		}
+		void end(){
+			if(is_file_available){
+				fclose(log_file);
+			}
+			is_file_available = false;
+		}
 		//return true the SD card available, else, returns false
 		bool isFileAvailable(){
 			return is_file_available;

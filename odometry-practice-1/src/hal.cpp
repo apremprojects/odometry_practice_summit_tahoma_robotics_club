@@ -25,7 +25,7 @@ void HAL::toggle_right_wing(const bool b){
 }
 void HAL::intake_start(const bool direction){
     Logger::getDefault()->log("intake_direction " + std::to_string(direction), DEPLOY_UPDATE);
-    //reversing motor directiosn due to emergency hardware change 1/20/2024
+    //reversing motor directions due to emergency hardware change 1/20/2024
     if(direction){
         Warning::getDefault()->raise(4);
         intake_motor.move_velocity(-600);

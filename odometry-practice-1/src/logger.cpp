@@ -1,6 +1,7 @@
 #include "logger.h"
 #include <unistd.h>
 #include <iostream>
+#include <cstring>
 
 Logger::Logger() {
     if(pros::usd::is_installed()){
@@ -9,34 +10,21 @@ Logger::Logger() {
         setbuf(log_file, NULL);
         if (log_file == NULL) {
             perror("SD Card Error -> ");
+            is_file_available = false;
         }
         else {
             printf("SD Card File Available...");
             is_file_available = true;
-            for(int i = 0; i < 10000; i++){
-                fputs("here...\n", log_file);
-            }
-
         }
     }
     else{
         log("SD Card not installed", DEBUG_MESSAGE);
+        is_file_available = false;
     }
 }
+
 Logger::~Logger(){
     fclose(log_file);
-}
-
-void Logger::start() {
-    std::lock_guard<Mutex> lock(mutex);
-    log_file = fopen(filename, "w");
-    is_file_available = true;
-}
-
-void Logger::end() {
-    std::lock_guard<Mutex> lock(mutex);
-    fclose(log_file);
-    is_file_available = false;
 }
 
 void Logger::log(const std::string input_message, const int type){
@@ -97,14 +85,12 @@ void Logger::log(const std::string input_message, const int type){
             std::cout << message;
         }
         else{
+            //std::cout << message;
             const char* m = message.c_str();
-            fputs(m, log_file);
-        }
-        if(logct % 20 == 0){
+            fwrite(m, sizeof(char), strlen(m), log_file);
             fflush(log_file);
         }
         items.pop();
-        logct++;
     }
 }
 

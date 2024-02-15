@@ -9,6 +9,7 @@ void PID::update(){
     double v_rpm_target = 0;
     while(true) {
         if(running){
+            //INTERIM SOLUTION REPLACING ROTATIONS SINCE START WITH HEADING
             new_angle_error = target_angle - state->getAngle();
             p_a = new_angle_error * p_g;
             i_a += (new_angle_error * (1.0 / update_freq)) * i_g;
