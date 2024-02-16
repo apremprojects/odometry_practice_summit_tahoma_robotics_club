@@ -15,11 +15,12 @@
 using namespace pros;
 
 struct MotionCmd{
-	MotionCmd(const double _max_velocity, const double _a_time, const double _end_x, const double _end_y): max_velocity(_max_velocity), a_time(_a_time), end_x(_end_x), end_y(_end_y){}
+	MotionCmd(const double _max_velocity, const double _a_time, const double _end_x, const double _end_y, const bool _decelerate): max_velocity(_max_velocity), a_time(_a_time), end_x(_end_x), end_y(_end_y), decelerate(_decelerate){}
 	double max_velocity;
 	double a_time;
 	double end_x;
 	double end_y;
+	bool decelerate;
 };
 
 struct Status{
@@ -121,8 +122,8 @@ class Robot {
 		double getY(){
 			return state->getY();
 		}
-		Status* goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool blocking){
-			MotionCmd cmd(max_velocity, a_time, end_x, end_y);
+		Status* goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool decelerate){
+			MotionCmd cmd(max_velocity, a_time, end_x, end_y, decelerate);
 			Status *status = new Status(false);
 			{
 				std::lock_guard<Mutex> lock(mutex);
@@ -204,7 +205,7 @@ class Robot {
 						double cur_x = state->getX();
 						double cur_y = state->getY();
 						double p = 0, i = 0, d = 0;
-						double p_g = 30, i_g = 0, d_g = 0;
+						double p_g = 0.003, i_g = 0, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
@@ -221,19 +222,29 @@ class Robot {
 							//if angle error > 0.1 rads ~6 deg stop and try rotating
 							if(abs(get_angle() - angle) < 0.1){
 								set_angle(angle, false);
-								set_velocity(std::min(p + i + d, cmd.max_velocity), false);
+								if(cmd.decelerate){
+									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
+								}
+								else{
+									set_velocity(cmd.max_velocity, false);
+								}
 							}
 							else{
 								set_velocity(0, false);
 								set_angle(angle, false);
 							}
 							if(cur_dist <= threshold){
+								/*if(cur_dist >= old_dist){
+									reached = true;
+								}*/
 								reached = true;
 							}
 							old_dist = cur_dist;
 							delay(20);
 						}
-						set_velocity(0, false);
+						if(cmd.decelerate){
+							set_velocity(0, false);
+						}
 						status_queue.front()->done = true;
 					}
 				}
@@ -350,6 +361,14 @@ void disabled() {
  */
 void competition_initialize() {}
 
+
+void backup(const int del){
+	robot->set_throttle(-127);
+	robot->set_yaw(0);
+	delay(del);
+	robot->set_throttle(0);
+}
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -362,100 +381,94 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
-	//CAUTION: I CHANGED THE DEFAULT START POSITION IN THE ROBOT CONSTRUCTOR. ANY WIERD ISSUES, CHECK THERE.
-	/*
-	Square dance
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	Status *status;
-	status = robot->goto_pos(600, 3000, 0, 1200, false);
-	while(!status->done){
-		delay(20);
-		Logger::getDefault()->log("Traveling to 0, 1200", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	status = robot->goto_pos(600, 3000, 1200, 1200, false);
-	while(!status->done){
-		delay(20);
-		Logger::getDefault()->log("Traveling to 1200, 1200", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	
-	status = robot->goto_pos(600, 3000, 1200, 0, false);
-	while(!status->done){
-		delay(20);
-		Logger::getDefault()->log("Traveling to 1200, 0", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	status = robot->goto_pos(600, 3000, 0, 0, false);
-	while(!status->done){
-		delay(20);
-		Logger::getDefault()->log("Traveling to 0, 0", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);*/
-
 	//RED FARSIDE
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
 	Status *status;
 
-	status = robot->goto_pos(1200, 3000, 900, 1800, false);
+	status = robot->goto_pos(600, 3000, 900, 1200, false);
 	while(!status->done){
 		delay(20);
-		Logger::getDefault()->log("Traveling to 900, 1800", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	//INTAKE
 	robot->get_hal()->intake_start(true);
-	delay(200);
-
-	status = robot->goto_pos(200, 100, 1200, 1800, false);
-	while(!status->done){
-		delay(5);
-		Logger::getDefault()->log("Traveling to 1200, 1800", DEBUG_MESSAGE);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	robot->get_hal()->toggle_right_wing(true);
-	delay(200);
-
-	status = robot->goto_pos(200, 3000, 1500, 1800, false);
+	status = robot->goto_pos(600, 100, 600, 1800, true);
 	while(!status->done){
 		delay(20);
-		Logger::getDefault()->log("Traveling to 1500, 1800", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	delay(200);
 
-	status = robot->goto_pos(600, 3000, 810, 1800, false);
+	status = robot->goto_pos(600, 3000, 990, 1800, true);
 	int st = millis();
 	while(!status->done){
-		if(millis() - st > 1000){
+		delay(20);
+		if(millis() - st > 500){
+			//EXHAUST
 			robot->get_hal()->intake_start(false);
 		}
-		delay(20);
-		Logger::getDefault()->log("Traveling to 810, 1800", DEBUG_MESSAGE);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	backup(200);
+
+	//INTAKE
+	robot->get_hal()->intake_start(true);
+	status = robot->goto_pos(600, 3000, 210, 1800, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	status = robot->goto_pos(600, 3000, 990, 1800, true);
+	st = millis();
+	while(!status->done){
+		delay(20);
+		if(millis() - st > 500){
+			//EXHAUST
+			robot->get_hal()->intake_start(false);
+		}
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	//EXHAUST
+	robot->get_hal()->intake_start(false);
+
+	//INTAKE
+	robot->get_hal()->intake_start(true);
+	status = robot->goto_pos(600, 3000, 210, 1200, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	st = millis();
+	status = robot->goto_pos(600, 3000, 990, 1800, true);
+	while(!status->done){
+		delay(20);
+		if(millis() - st > 500){
+			//EXHAUST
+			robot->get_hal()->intake_start(false);
+		}
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	//EXHAUST
+	robot->get_hal()->intake_start(false);
 	delay(200);
 
-	robot->set_throttle(0);
+	robot->set_throttle(127);
 	robot->set_yaw(0);
 	delay(200);
-
-	//backup at full throttle for 200ms
-	/*robot->set_throttle(-127);
+	robot->set_throttle(-127);
 	robot->set_yaw(0);
 	delay(200);
 	robot->set_throttle(0);
 	robot->set_yaw(0);
-	*/
 
 
 }
