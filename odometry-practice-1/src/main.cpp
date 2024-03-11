@@ -178,10 +178,10 @@ class Robot {
 			return isForward;
 		}
 		std::list<Status*> status_queue;
+		State *state; // = new State(7, 1, 2, update_freq * 2);
 	private:
 		double update_freq = -1;
 		bool isForward = true;
-		State *state; // = new State(7, 1, 2, update_freq * 2);
 		Mixer *mixer; // = new Mixer(7, 1);
 		PID *pid; // = new PID(140, 0, 1, update_freq, mixer, state)
 		HAL *hal;
@@ -363,10 +363,19 @@ void competition_initialize() {}
 
 
 void backup(const int del){
-	robot->set_throttle(-127);
-	robot->set_yaw(0);
-	delay(del);
-	robot->set_throttle(0);
+	if(del > 0){
+		robot->set_throttle(-127);
+		robot->set_yaw(0);
+		delay(del);
+		robot->set_throttle(0);
+	}
+	if(del < 0){
+		robot->set_throttle(127);
+		robot->set_yaw(0);
+		delay(-del);
+		robot->set_throttle(0);
+	}
+
 }
 
 /**
@@ -382,10 +391,45 @@ void backup(const int del){
  */
 void autonomous() {
 	//RED FARSIDE
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
 	Status *status;
+	int st = 0;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	robot->get_hal()->intake_start(true);
+	delay(200);
 
-	status = robot->goto_pos(600, 3000, 900, 1200, false);
+	status = robot->goto_pos(800, 3000, 900, 410, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	status = robot->goto_pos(800, 3000, 1500, 700, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	robot->get_hal()->intake_start(false);
+	status = robot->goto_pos(1200, 3000, 1500, 950, true);
+	st = millis();
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	backup(200);
+
+	status = robot->goto_pos(800, 3000, 900, 900, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+	status = robot->goto_pos(800, 3000, 900, 1200, true);
 	while(!status->done){
 		delay(20);
 	}
@@ -394,15 +438,16 @@ void autonomous() {
 
 	//INTAKE
 	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(600, 100, 600, 1800, true);
+	status = robot->goto_pos(800, 100, 600, 1800, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	backup(-200);
 
-	status = robot->goto_pos(600, 3000, 990, 1800, true);
-	int st = millis();
+	status = robot->goto_pos(800, 3000, 990, 1800, true);
+	st = millis();
 	while(!status->done){
 		delay(20);
 		if(millis() - st > 500){
@@ -412,18 +457,21 @@ void autonomous() {
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	robot->get_hal()->intake_start(false);
+	delay(200);
 	backup(200);
 
 	//INTAKE
 	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(600, 3000, 210, 1800, true);
+	status = robot->goto_pos(800, 3000, 210, 1800, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	delay(200);
 
-	status = robot->goto_pos(600, 3000, 990, 1800, true);
+	status = robot->goto_pos(800, 3000, 990, 1800, true);
 	st = millis();
 	while(!status->done){
 		delay(20);
@@ -436,18 +484,20 @@ void autonomous() {
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	//EXHAUST
 	robot->get_hal()->intake_start(false);
+	delay(200);
 
 	//INTAKE
 	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(600, 3000, 210, 1200, true);
+	status = robot->goto_pos(800, 3000, 210, 1200, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	delay(200);
 
 	st = millis();
-	status = robot->goto_pos(600, 3000, 990, 1800, true);
+	status = robot->goto_pos(800, 3000, 990, 1800, true);
 	while(!status->done){
 		delay(20);
 		if(millis() - st > 500){

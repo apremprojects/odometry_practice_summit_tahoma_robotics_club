@@ -28,11 +28,13 @@ void HAL::intake_start(const bool direction){
     //reversing motor directions due to emergency hardware change 1/20/2024
     if(direction){
         Warning::getDefault()->raise(4);
-        intake_motor.move_velocity(-600);
+        //intake_motor.move_velocity(-600);
+        intake_motor.move(-127);
     }
     else{
         Warning::getDefault()->raise(5);
-        intake_motor.move_velocity(600);
+        //intake_motor.move_velocity(600);
+        intake_motor.move(127);
     }
     isIntakingIntaking = direction;
 }
