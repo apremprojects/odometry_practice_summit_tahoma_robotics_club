@@ -8,10 +8,10 @@ using namespace pros;
 using namespace pros::literals;
 class HAL{ //hardware abstraction layer
 	public:
-		HAL(const int _left_wing_triwire_port, const int _right_wing_triwire_port, const int _intake_motor_port, const int _left_one_port, const int _left_two_port, const int _left_three_port, const int _right_one_port, const int _right_two_port, const int _right_three_port, const int _imu_port): left_wing(_left_wing_triwire_port, false), right_wing(_right_wing_triwire_port, false), intake_motor(_intake_motor_port), left_one(_left_one_port, pros::v5::MotorGears::blue), left_two(_left_two_port, pros::v5::MotorGears::blue), left_three(_left_three_port, pros::v5::MotorGears::blue), right_one(_right_one_port, pros::v5::MotorGears::blue), right_two(_right_two_port, pros::v5::MotorGears::blue), right_three(_right_three_port, pros::v5::MotorGears::blue), imu(_imu_port) {
+		HAL(const int _left_wing_triwire_port, const int _right_wing_triwire_port, const int _intake_motor_port, const int _elevator_motor_port, const int _left_one_port, const int _left_two_port, const int _left_three_port, const int _right_one_port, const int _right_two_port, const int _right_three_port, const int _imu_port): left_wing(_left_wing_triwire_port, false), right_wing(_right_wing_triwire_port, false), intake_motor(_intake_motor_port), elevator_motor(_elevator_motor_port), left_one(_left_one_port, pros::v5::MotorGears::blue), left_two(_left_two_port, pros::v5::MotorGears::blue), left_three(_left_three_port, pros::v5::MotorGears::blue), right_one(_right_one_port, pros::v5::MotorGears::blue), right_two(_right_two_port, pros::v5::MotorGears::blue, true), right_three(_right_three_port, pros::v5::MotorGears::blue), imu(_imu_port) {
 			Logger::getDefault()->log("HAL::HAL()", FUNCTION_CALL);
 			left_one.set_reversed(true);
-			left_two.set_reversed(true);
+			left_two.set_reversed(false);
 			left_three.set_reversed(true);
 			left_wing.set_value(false);
 			right_wing.set_value(false);
@@ -22,6 +22,8 @@ class HAL{ //hardware abstraction layer
 		}
 		void toggle_left_wing(const bool b);
 		void toggle_right_wing(const bool b);
+		void elevator_start(const bool b);
+		void elevator_stop(const bool b);
 		void intake_start(const bool direction);
 		void intake_stop();
 		void set_left_velocity(double rpm){
@@ -108,6 +110,7 @@ class HAL{ //hardware abstraction layer
 		}
 	private:
 		Motor intake_motor;
+		Motor elevator_motor;
 		Motor left_one;
 		Motor left_two;
 		Motor left_three;

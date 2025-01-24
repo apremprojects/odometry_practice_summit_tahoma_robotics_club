@@ -36,7 +36,7 @@ class Robot {
 			logger = Logger::getDefault();
 			logger->log("Robot::Robot()", FUNCTION_CALL);
 			//wait for PROS kernel to do all its init stuff, it isn't ready when global stuff is setup
-			hal = new HAL(0, 0, 0, 18, 19, 20, 11, 12, 13, 17);
+			hal = new HAL(0, 0, 0, 1, 2, 3, 8, 9, 10, 17);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
 			pid = new PID(40, 0, 0, update_freq, mixer, state);

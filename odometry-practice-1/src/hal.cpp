@@ -44,3 +44,18 @@ void HAL::intake_stop(){
     Logger::getDefault()->log("intake_stop", DEPLOY_UPDATE);
     intake_motor.move_velocity(0);
 }
+
+void HAL::elevator_start(const bool direction){
+    Logger::getDefault()->log("elevator_direction " + std::to_string(direction), DEPLOY_UPDATE);
+    if(direction){
+        Warning::getDefault()->raise(4);
+        //intake_motor.move_velocity(-600);
+        intake_motor.move(-127);
+    }
+    else{
+        Warning::getDefault()->raise(5);
+        //intake_motor.move_velocity(600);
+        intake_motor.move(127);
+    }
+    isIntakingIntaking = direction;
+}
