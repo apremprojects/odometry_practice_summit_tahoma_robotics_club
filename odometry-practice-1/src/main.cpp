@@ -318,16 +318,16 @@ void opcontrol() {
 		robot->set_yaw(raw_yaw);
 		robot->set_throttle(raw_throttle);
 		if(controller.get_L1()){
-			robot->get_hal()->toggle_left_wing(true);
+			robot->get_hal()->elevator_start(true);
 		}
 		else{
-			robot->get_hal()->toggle_left_wing(false);
+			robot->get_hal()->elevator_stop();
 		}
 		if(controller.get_R1()){
-			robot->get_hal()->toggle_right_wing(true);
+			robot->get_hal()->intake_start(true);
 		}
 		else{
-			robot->get_hal()->toggle_right_wing(false);
+			robot->get_hal()->intake_stop();
 		}
 		if(controller.get_A()){
 			robot->set_control_point(false);

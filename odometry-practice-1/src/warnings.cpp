@@ -68,7 +68,7 @@ const char* Warning::toMessage(const int id){
         case 6:
             return "ELVTR: INTKG";
         case 7:
-            return "ELVTR: EX"
+            return "ELVTR: EXHSTG";
     }
     return "INVDERRID";
 }
