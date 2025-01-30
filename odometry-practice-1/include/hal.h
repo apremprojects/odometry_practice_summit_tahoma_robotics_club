@@ -110,6 +110,17 @@ class HAL{ //hardware abstraction layer
 			r[6] = intake_motor.get_torque();
 			return r;
 		}
+		std::array<uint32_t,7> get_motor_faults(){
+			std::array<uint32_t, 7> r;
+			r[0] = left_one.get_faults();
+			r[1] = left_two.get_faults();
+			r[2] = left_three.get_faults();
+			r[3] = right_one.get_faults();
+			r[4] = right_two.get_faults();
+			r[5] = right_three.get_faults();
+			r[6] = intake_motor.get_faults();
+			return r;
+		}
 		void easter_egg();
 		bool isIntakingIntaking = false;
 		bool isElevatorElevating = false;
