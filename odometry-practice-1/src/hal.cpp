@@ -51,13 +51,14 @@ void HAL::intake_start(const bool direction){
         //intake_motor.move_velocity(600);
         intake_motor.move(127);
     }
-    isIntakingIntaking = direction;
+    isIntakingIntaking = true;
 }
 void HAL::intake_stop(){
     Warning::getDefault()->revoke(4);
     Warning::getDefault()->revoke(5);
     Logger::getDefault()->log("intake_stop", DEPLOY_UPDATE);
     intake_motor.move_velocity(0);
+    isIntakingIntaking = false;
 }
 
 void HAL::elevator_start(const bool direction){
@@ -72,7 +73,7 @@ void HAL::elevator_start(const bool direction){
         //intake_motor.move_velocity(600);
         elevator_motor.move(127);
     }
-    isIntakingIntaking = direction;
+    isElevatorElevating = true;
 }
 
 void HAL::elevator_stop(){
@@ -80,6 +81,7 @@ void HAL::elevator_stop(){
     Warning::getDefault()->revoke(7);
     Logger::getDefault()->log("intake_stop", DEPLOY_UPDATE);
     elevator_motor.move_velocity(0);
+    isElevatorElevating = false;
 }
 
 void HAL::easter_egg(){

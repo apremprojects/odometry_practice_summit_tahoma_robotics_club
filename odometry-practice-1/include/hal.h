@@ -111,6 +111,9 @@ class HAL{ //hardware abstraction layer
 			return r;
 		}
 		void easter_egg();
+		bool isIntakingIntaking = false;
+		bool isElevatorElevating = false;
+		bool clamp_status = false;
 	private:
 		Motor intake_motor;
 		Motor elevator_motor;
@@ -125,7 +128,5 @@ class HAL{ //hardware abstraction layer
 		//const double mw_ratio = 9.0 / 5.0;
 		//5 motor rotation 3 wheel rotations
 		pros::adi::DigitalOut clamp;
-		bool clamp_status;
-		bool isIntakingIntaking;
 		int32_t start_left_ticks = 0, start_right_ticks = 0;
 };

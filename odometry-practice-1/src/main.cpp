@@ -69,17 +69,36 @@ class RobotController{
 		bool get_L1(){
 			return master.get_digital(DIGITAL_L1);
 		}
+		bool get_L1_rising() {
+			return master.get_digital_new_press(DIGITAL_L1);
+		}
+
 		bool get_R1(){
 			return master.get_digital(DIGITAL_R1);
 		}
+		bool get_R1_rising() {
+			return master.get_digital_new_press(DIGITAL_R1);
+		}
+
 		bool get_L2(){
 			return master.get_digital(DIGITAL_L2);
 		}
+		bool get_L2_rising() {
+			return master.get_digital_new_press(DIGITAL_L2);
+		}
+
 		bool get_R2(){
 			return master.get_digital(DIGITAL_R2);
 		}
+		bool get_R2_rising() {
+			return master.get_digital_new_press(DIGITAL_R2);
+		}
+
 		bool get_A(){
 			return master.get_digital(DIGITAL_A);
+		}
+		bool get_A_rising() {
+			return master.get_digital_new_press(DIGITAL_A);
 		}
 	private:
 		double expo;
@@ -317,36 +336,38 @@ void opcontrol() {
 		int raw_throttle = controller.get_raw_throttle();
 		robot->set_yaw(raw_yaw);
 		robot->set_throttle(raw_throttle);
-		if(controller.get_L1()){
+		if(controller.get_A_rising()){ //remember default control point is "true" -> TOGGLES
+			robot->set_control_point(!robot->get_control_point());
+		}
+
+		if(controller.get_L1_rising()){//intake in -> "false" -> TOGGLES
+			if(robot->get_hal()->isIntakingIntaking){
+				robot->get_hal()->intake_stop();
+			}
+			else{
+				robot->get_hal()->intake_start(false);
+			}
+		}
+
+		if(controller.get_L2_rising()){ //intake out -> "true" -> TOGGLES
+			if(robot->get_hal()->isIntakingIntaking){
+				robot->get_hal()->intake_stop();
+			}
+			else{
+				robot->get_hal()->intake_start(true);
+			}
+		}
+
+		if(controller.get_R1_rising()){ //pnuematic toggle, "true" is clamped -> TOGGLES
+			robot->get_hal()->toggle_clamp(!robot->get_hal()->clamp_status);
+		}
+
+		if(controller.get_R2()){ //lift -> TRIGGER
 			robot->get_hal()->elevator_start(false);
 		}
 		else{
 			robot->get_hal()->elevator_stop();
 		}
-		if(controller.get_A()){
-			robot->set_control_point(false);
-		}
-		else{
-			robot->set_control_point(true);
-		}
-		if(controller.get_L2()){
-			robot->get_hal()->intake_start(false);
-		}
-		else if(controller.get_R2()){
-			robot->get_hal()->intake_start(true);
-		}
-		else{
-			robot->get_hal()->intake_stop();
-		}
-		if(controller.get_R1()){ //MAKE PNUEMATICS A FUCKING TOGGLE
-
-			robot->get_hal()->toggle_clamp(true);
-		}
-		else{
-			robot->get_hal()->toggle_clamp(false);
-		}
-		
 		delay(20);
 	}
-	//TBD fix the velocity pid and create a pid test system
 }

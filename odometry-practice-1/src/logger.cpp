@@ -90,6 +90,7 @@ void Logger::log(const std::string input_message, const int type){
             fwrite(m, sizeof(char), strlen(m), log_file);
             fflush(log_file);
         }
+        //then print log to screen
         items.pop();
     }
 }
