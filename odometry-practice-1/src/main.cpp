@@ -318,16 +318,10 @@ void opcontrol() {
 		robot->set_yaw(raw_yaw);
 		robot->set_throttle(raw_throttle);
 		if(controller.get_L1()){
-			robot->get_hal()->elevator_start(true);
+			robot->get_hal()->elevator_start(false);
 		}
 		else{
 			robot->get_hal()->elevator_stop();
-		}
-		if(controller.get_R1()){
-			robot->get_hal()->intake_start(true);
-		}
-		else{
-			robot->get_hal()->intake_stop();
 		}
 		if(controller.get_A()){
 			robot->set_control_point(false);
@@ -336,14 +330,22 @@ void opcontrol() {
 			robot->set_control_point(true);
 		}
 		if(controller.get_L2()){
-			robot->get_hal()->intake_start(true);
+			robot->get_hal()->intake_start(false);
 		}
 		else if(controller.get_R2()){
-			robot->get_hal()->intake_start(false);
+			robot->get_hal()->intake_start(true);
 		}
 		else{
 			robot->get_hal()->intake_stop();
 		}
+		if(controller.get_R1()){ //MAKE PNUEMATICS A FUCKING TOGGLE
+
+			robot->get_hal()->toggle_clamp(true);
+		}
+		else{
+			robot->get_hal()->toggle_clamp(false);
+		}
+		
 		delay(20);
 	}
 	//TBD fix the velocity pid and create a pid test system

@@ -58,9 +58,9 @@ const char* Warning::toMessage(const int id){
         case 1:
             return "CTRLPT:REV";
         case 2:
-            return "DPLY: LWING";
+            return "DPLY: CLMP";
         case 3:
-            return "DPLY: RWING";
+            return "UNUSED";
         case 4:
             return "DPLY: INTKG";
         case 5:
