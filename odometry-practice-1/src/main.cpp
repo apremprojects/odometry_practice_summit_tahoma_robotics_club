@@ -66,7 +66,7 @@ class RobotController{
 			update_task.remove();
 		}
 		int get_raw_yaw(){
-			return master.get_analog(ANALOG_LEFT_X);
+			return master.get_analog(ANALOG_RIGHT_X);
 		}
 		int get_raw_throttle(){
 			return master.get_analog(ANALOG_LEFT_Y);
@@ -112,6 +112,13 @@ class RobotController{
 		}
 		bool get_A_rising() {
 			return master.get_digital_new_press(DIGITAL_A);
+		}
+
+		bool get_X(){
+			return master.get_digital(DIGITAL_X);
+		}
+		bool get_X_rising() {
+			return master.get_digital_new_press(DIGITAL_X);
 		}
 	private:
 		double expo;
@@ -342,7 +349,7 @@ void writeGigabyte(){
 }
 
 void opcontrol() {
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
 	Logger *logger = Logger::getDefault();
 	logger->log("void opcontrol()", FUNCTION_CALL);
 	RobotController controller(0.2, 127, 3, robot);
@@ -373,7 +380,7 @@ void opcontrol() {
 			}
 		}
 
-		if(controller.get_R1_rising()){ //pnuematic toggle, "true" is clamped -> TOGGLES
+		if(controller.get_X_rising()){ //pnuematic toggle, "true" is clamped -> TOGGLES
 			robot->get_hal()->toggle_clamp(!robot->get_hal()->clamp_status);
 		}
 
