@@ -384,6 +384,12 @@ void opcontrol() {
 			robot->get_hal()->toggle_clamp(!robot->get_hal()->clamp_status);
 		}
 
+		if(controller.get_R1()){ //lift reverse -> TRIGGER
+			robot->get_hal()->elevator_start(true);
+		}
+		else{
+			robot->get_hal()->elevator_stop();
+		}
 		if(controller.get_R2()){ //lift -> TRIGGER
 			robot->get_hal()->elevator_start(false);
 		}
