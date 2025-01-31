@@ -97,8 +97,14 @@ class State{
 			//double theta_odom = start_angle + 2 * M_PI * ((r_ct - l_ct) * wheel_radius) / (wheelbase_diameter);
 			double theta_odom = theta_imu;
 			double dx = v * cos(theta_imu), dy = v * sin(theta_imu);
-			z(0) += dx;
-			z(1) += dy;
+			if(isForward){
+				z(0) += dx;
+				z(1) += dy;
+			}
+			else{
+				z(0) -= dx;
+				z(1) -= dy;
+			}
 			z(2) = v;
 			z(3) = theta_imu;
 			z(4) = theta_odom;
@@ -122,7 +128,7 @@ class State{
 			if(isForward){
 				return start_angle - (hal->get_imu().get_rotation() / 180.0) * M_PI;
 			}
-			return start_angle - (hal->get_imu().get_rotation() / 180.0) * M_PI + (M_PI / 2.0);
+			return start_angle - (hal->get_imu().get_rotation() / 180.0) * M_PI + M_PI;
 		}
 		bool isForward = true;
 		const double start_angle = 0;

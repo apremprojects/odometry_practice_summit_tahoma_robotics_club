@@ -17,30 +17,28 @@ using namespace pros;
 
 class GUI{
 	public:
-		GUI(Robot *_robot): robot(_robot), update_task(update) {
+		GUI() { //1/30/2025, huge priority
 			logger = Logger::getDefault();
 			logger->log("GUI::GUI()", FUNCTION_CALL);
-			drawSDCardBox(Logger::getDefault()->isFileAvailable());
-			//update_task = Task(update);
 		}
+		void update(const std::array<double,7> temps, const std::array<double,7> rpms, const std::array<double,7> torques, const std::array<uint32_t,7> faults, const double x, const double y) {
+			drawBatteryBox(pros::battery::get_capacity());
+			drawSDCardBox(Logger::getDefault()->isFileAvailable());
+			drawMotors(temps, rpms, torques, faults, x, y); //oddly causes crash
+		};
 	private:
 		void drawSDCardBox(const bool is_logging_available){
 			pros::screen::set_pen(pros::c::COLOR_YELLOW);
-			pros::screen::print(TEXT_MEDIUM, 0, "Logging: " + is_logging_available ? "Unavailable": "Available");
+			pros::screen::print(TEXT_MEDIUM, 0, (std::string("Logging: ") + std::string(is_logging_available ? "Unavailable": "Available")).c_str());
 		}
 		void drawBatteryBox(const double battery_status){
 			pros::screen::set_pen(pros::c::COLOR_GREEN);
 			std::string m = "Battery: " + std::to_string(battery_status);
 			pros::screen::print(TEXT_MEDIUM, 1, m.c_str());
 		}
-		void drawMotors(const HAL *hal){
-			
-			auto temps = robot->get_hal()->get_temperatures();
-			auto rpms = robot->get_hal()->get_rpms();
-			auto torques = robot->get_hal()->get_torques();
-			auto faults = robot->get_hal()->get_motor_faults();
+		void drawMotors(const std::array<double,7> temps, const std::array<double,7> rpms, const std::array<double,7> torques, std::array<uint32_t,7> faults, const double x, const double y){
 			for(int line = 2; line < temps.size() + 2; line++){
-				if(faults[line - 2] = E_MOTOR_FAULT_NO_FAULTS){
+				if(faults[line - 2] == E_MOTOR_FAULT_NO_FAULTS){
 					pros::screen::set_pen(pros::c::COLOR_GREEN);
 				}
 				else{
@@ -50,17 +48,11 @@ class GUI{
 				std::string m = "Motor #" + std::to_string(line - 2) + " -> " + std::to_string(rpms[line - 2]).substr(0, 4) + " RPM, " + std::to_string(torques[line - 2]).substr(0,4) + " Nm, " + std::to_string(temps[line - 2]).substr(0,4) + "C";
 				pros::screen::print(TEXT_MEDIUM, line, m.c_str());
 			}
+			pros::screen::print(TEXT_MEDIUM, temps.size()+2, (std::string("Position -> ") + std::to_string(x) + ", " + std::to_string(y)).c_str());
 		}
-		Robot *robot;
+		
 		Logger *logger;
-		Task update_task;
-		std::function<void()> update = [this](){
-			while(true){
-				drawBatteryBox(pros::battery::get_capacity());
-				drawMotors(robot->get_hal());
-				delay(1000);
-			}
-		};
+		
 		int current_line = 0;
 };
 
@@ -135,10 +127,10 @@ class RobotController{
 };
 
 Robot *robot = nullptr;
+GUI *gui = nullptr;
 
 void initialize() {
 	robot = new Robot(0.5 * M_PI, 900, 210, 50);
-	GUI *gui = new GUI(robot);
 }
 
 /**
@@ -162,7 +154,9 @@ void disabled() {
  * This task will exit when the robot is enabled and autonomous or opcontrol
  * starts.
  */
-void competition_initialize() {}
+void competition_initialize() {
+	gui = new GUI();
+}
 
 
 void backup(const int del){
@@ -389,6 +383,7 @@ void opcontrol() {
 		else{
 			robot->get_hal()->elevator_stop();
 		}
+		gui->update(robot->get_hal()->get_temperatures(), robot->get_hal()->get_rpms(), robot->get_hal()->get_torques(), robot->get_hal()->get_motor_faults(), robot->getX(), robot->getY());
 		delay(20);
 	}
 }

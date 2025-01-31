@@ -78,6 +78,7 @@ class HAL{ //hardware abstraction layer
 			return imu;
 		}
 		std::array<double,7> get_temperatures(){
+			std::lock_guard<Mutex> lock(mutex);
 			std::array<double,7> r;
 			r[0] = left_one.get_temperature();
 			r[1] = left_two.get_temperature();
@@ -89,6 +90,7 @@ class HAL{ //hardware abstraction layer
 			return r;
 		}
 		std::array<double,7> get_rpms(){
+			std::lock_guard<Mutex> lock(mutex);
 			std::array<double,7> r;
 			r[0] = left_one.get_actual_velocity();
 			r[1] = left_two.get_actual_velocity();
@@ -100,6 +102,7 @@ class HAL{ //hardware abstraction layer
 			return r;
 		}
 		std::array<double,7> get_torques(){
+			std::lock_guard<Mutex> lock(mutex);
 			std::array<double,7> r;
 			r[0] = left_one.get_torque();
 			r[1] = left_two.get_torque();
@@ -111,6 +114,7 @@ class HAL{ //hardware abstraction layer
 			return r;
 		}
 		std::array<uint32_t,7> get_motor_faults(){
+			std::lock_guard<Mutex> lock(mutex);
 			std::array<uint32_t, 7> r;
 			r[0] = left_one.get_faults();
 			r[1] = left_two.get_faults();
@@ -134,6 +138,7 @@ class HAL{ //hardware abstraction layer
 		Motor right_one;
 		Motor right_two;
 		Motor right_three;
+		Mutex mutex;
 		Imu imu;
 		const double mw_ratio = 3.0 / 5.0; //motor wheel gear ratio
 		//const double mw_ratio = 9.0 / 5.0;
