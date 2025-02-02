@@ -39,6 +39,10 @@ class State{
 			new_state.first(1) = new_y;
 			new_state.first(2) = 0;
 		}
+		void setAngle(const double new_angle){
+			std::lock_guard lock(mutex);
+			start_angle = new_angle + (hal->get_imu().get_rotation() / 180.0) * M_PI;
+		}
 		double getX(){
 			std::lock_guard lock(mutex);
 			return new_state.first(0);
@@ -73,8 +77,8 @@ class State{
 			std::lock_guard lock(mutex);
 			isForward = b;
 		}
-		const double wheel_radius = 41.275;
-		const double wheelbase_diameter = 300.0;
+		const double wheel_radius = 260 / (2 * M_PI);
+		const double wheelbase_diameter = 320.0;
 	private:
 		std::pair<Eigen::Vector4d, Eigen::Matrix4d> predict(const std::pair<Eigen::Vector4d, Eigen::Matrix4d> in){
 			Logger::getDefault()->log("IN -> " + toString(in.first), DEBUG_MESSAGE);
@@ -131,7 +135,7 @@ class State{
 			return start_angle - (hal->get_imu().get_rotation() / 180.0) * M_PI + M_PI;
 		}
 		bool isForward = true;
-		const double start_angle = 0;
+		double start_angle = 0;
 		const int update_freq;
 		const double update_delay = 1000.0 / update_freq;
 		Eigen::Matrix4d F = Eigen::Matrix4d::Identity(), B = Eigen::Matrix4d::Zero(), I = Eigen::Matrix4d::Identity();

@@ -21,10 +21,10 @@ class GUI{
 			logger = Logger::getDefault();
 			logger->log("GUI::GUI()", FUNCTION_CALL);
 		}
-		void update(const std::array<double,7> temps, const std::array<double,7> rpms, const std::array<double,7> torques, const std::array<uint32_t,7> faults, const double x, const double y) {
+		void update(const std::array<double,8> temps, const std::array<double,8> rpms, const std::array<double,8> torques, const std::array<uint32_t,8> faults, const double x, const double y, const double angle) {
 			drawBatteryBox(pros::battery::get_capacity());
 			drawSDCardBox(Logger::getDefault()->isFileAvailable());
-			drawMotors(temps, rpms, torques, faults, x, y); //oddly causes crash
+			drawMotors(temps, rpms, torques, faults, x, y, angle);
 		};
 	private:
 		void drawSDCardBox(const bool is_logging_available){
@@ -36,7 +36,7 @@ class GUI{
 			std::string m = "Battery: " + std::to_string(battery_status);
 			pros::screen::print(TEXT_MEDIUM, 1, m.c_str());
 		}
-		void drawMotors(const std::array<double,7> temps, const std::array<double,7> rpms, const std::array<double,7> torques, std::array<uint32_t,7> faults, const double x, const double y){
+		void drawMotors(const std::array<double,8> temps, const std::array<double,8> rpms, const std::array<double,8> torques, std::array<uint32_t,8> faults, const double x, const double y, const double angle){
 			for(int line = 2; line < temps.size() + 2; line++){
 				if(faults[line - 2] == E_MOTOR_FAULT_NO_FAULTS){
 					pros::screen::set_pen(pros::c::COLOR_GREEN);
@@ -48,7 +48,7 @@ class GUI{
 				std::string m = "Motor #" + std::to_string(line - 2) + " -> " + std::to_string(rpms[line - 2]).substr(0, 4) + " RPM, " + std::to_string(torques[line - 2]).substr(0,4) + " Nm, " + std::to_string(temps[line - 2]).substr(0,4) + "C";
 				pros::screen::print(TEXT_MEDIUM, line, m.c_str());
 			}
-			pros::screen::print(TEXT_MEDIUM, temps.size()+2, (std::string("Position -> ") + std::to_string(x) + ", " + std::to_string(y)).c_str());
+			pros::screen::print(TEXT_MEDIUM, temps.size()+2, (std::string("Position -> ") + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(angle)).c_str());
 		}
 		
 		Logger *logger;
@@ -194,7 +194,53 @@ void backup(const int del){
  * from where it left off.
  */
 void autonomous() {
-	//RED FARSIDE
+	//1
+	/*
+	START_POS 214.55, 2400.00
+	REVERSE_CONTROL_POINT
+	GOTO 900.00, 2400.00 @ 600mm/s DONT DECELERATE
+	GOTO 1200.00, 2400.00 @ 200mm/s DECELERATE
+	ACTIVATE_CLAMP
+	ACTIVATE_INTAKE
+	ACTIVATE_ELEVATOR
+	GOTO 1200.00, 2700.00 @ 600mm/s DONT DECELERATE
+	GOTO 1200.00, 3000.00 @ 100mm/s DECELERATE
+	
+
+	Optional subroutine - touch ladder
+	GO 1200.00, 2400.00 @ 600mm/s DONT DECELERATE
+	GO 1800.00 - (half of robot length), 2400.00 @ 600mm/s DECELERATE
+
+	
+	*/
+	Status *status;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
+	robot->get_hal()->intake_start(false); //START INTAKE
+	robot->get_hal()->elevator_start(false); //START ELEVATOR
+	robot->setPos(214.55, 2400.00); //SET START_POS
+	robot->set_angle(M_PI);
+	robot->set_control_point(false); //REVERSE CONTROL POINT
+
+	status = robot->goto_pos(600, 1, 900, 2400, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	status = robot->goto_pos(600, 1, 1500, 2400, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	robot->get_hal()->toggle_clamp(true);
+
+
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+
+
+	//2024 Over Under Game Auton - Capable of scoring 3 triballs in one fell go - saved here for posterity
+	/*
 	Status *status;
 	int st = 0;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
@@ -323,6 +369,7 @@ void autonomous() {
 	delay(200);
 	robot->set_throttle(0);
 	robot->set_yaw(0);
+	*/
 
 
 }
@@ -350,6 +397,8 @@ void writeGigabyte(){
 
 void opcontrol() {
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	//robot->setPos(214.55, 2400.00); //SET START_POS
+	//robot->set_angle(M_PI);
 	Logger *logger = Logger::getDefault();
 	logger->log("void opcontrol()", FUNCTION_CALL);
 	RobotController controller(0.2, 127, 3, robot);
@@ -387,16 +436,13 @@ void opcontrol() {
 		if(controller.get_R1()){ //lift reverse -> TRIGGER
 			robot->get_hal()->elevator_start(true);
 		}
-		else{
-			robot->get_hal()->elevator_stop();
-		}
-		if(controller.get_R2()){ //lift -> TRIGGER
+		else if(controller.get_R2()){ //lift -> TRIGGER
 			robot->get_hal()->elevator_start(false);
 		}
 		else{
 			robot->get_hal()->elevator_stop();
 		}
-		gui->update(robot->get_hal()->get_temperatures(), robot->get_hal()->get_rpms(), robot->get_hal()->get_torques(), robot->get_hal()->get_motor_faults(), robot->getX(), robot->getY());
+		gui->update(robot->get_hal()->get_temperatures(), robot->get_hal()->get_rpms(), robot->get_hal()->get_torques(), robot->get_hal()->get_motor_faults(), robot->getX(), robot->getY(), robot->get_angle());
 		delay(20);
 	}
 }

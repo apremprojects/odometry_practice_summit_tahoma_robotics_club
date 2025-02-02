@@ -62,6 +62,9 @@ class Robot {
 			delete pid_task;
 			delete state_task;
 		}
+		void set_angle(const double new_angle) {
+			state->setAngle(new_angle);
+		}
 		void set_angle(double new_angle, const bool blocking){
 			logger->log(std::to_string(new_angle), TARGET_ANGLE_UPDATE);
 			pid->changeRunningState(true);
@@ -122,6 +125,9 @@ class Robot {
 		}
 		double getY(){
 			return state->getY();
+		}
+		void setPos(const double x, const double y){
+			state->setPos(x,y);
 		}
 		Status* goto_pos(const double max_velocity, const double a_time, const double end_x, const double end_y, const bool decelerate){
 			MotionCmd cmd(max_velocity, a_time, end_x, end_y, decelerate);

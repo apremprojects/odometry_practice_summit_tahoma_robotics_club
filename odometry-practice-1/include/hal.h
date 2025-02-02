@@ -77,9 +77,9 @@ class HAL{ //hardware abstraction layer
 		pros::Imu& get_imu(){
 			return imu;
 		}
-		std::array<double,7> get_temperatures(){
+		std::array<double,8> get_temperatures(){
 			std::lock_guard<Mutex> lock(mutex);
-			std::array<double,7> r;
+			std::array<double,8> r;
 			r[0] = left_one.get_temperature();
 			r[1] = left_two.get_temperature();
 			r[2] = left_three.get_temperature();
@@ -87,11 +87,12 @@ class HAL{ //hardware abstraction layer
 			r[4] = right_two.get_temperature();
 			r[5] = right_three.get_temperature();
 			r[6] = intake_motor.get_temperature();
+			r[7] = elevator_motor.get_temperature();
 			return r;
 		}
-		std::array<double,7> get_rpms(){
+		std::array<double,8> get_rpms(){
 			std::lock_guard<Mutex> lock(mutex);
-			std::array<double,7> r;
+			std::array<double,8> r;
 			r[0] = left_one.get_actual_velocity();
 			r[1] = left_two.get_actual_velocity();
 			r[2] = left_three.get_actual_velocity();
@@ -99,11 +100,12 @@ class HAL{ //hardware abstraction layer
 			r[4] = right_two.get_actual_velocity();
 			r[5] = right_three.get_actual_velocity();
 			r[6] = intake_motor.get_actual_velocity();
+			r[7] = elevator_motor.get_actual_velocity();
 			return r;
 		}
-		std::array<double,7> get_torques(){
+		std::array<double,8> get_torques(){
 			std::lock_guard<Mutex> lock(mutex);
-			std::array<double,7> r;
+			std::array<double,8> r;
 			r[0] = left_one.get_torque();
 			r[1] = left_two.get_torque();
 			r[2] = left_three.get_torque();
@@ -111,11 +113,12 @@ class HAL{ //hardware abstraction layer
 			r[4] = right_two.get_torque();
 			r[5] = right_three.get_torque();
 			r[6] = intake_motor.get_torque();
+			r[7] = elevator_motor.get_torque();
 			return r;
 		}
-		std::array<uint32_t,7> get_motor_faults(){
+		std::array<uint32_t,8> get_motor_faults(){
 			std::lock_guard<Mutex> lock(mutex);
-			std::array<uint32_t, 7> r;
+			std::array<uint32_t, 8> r;
 			r[0] = left_one.get_faults();
 			r[1] = left_two.get_faults();
 			r[2] = left_three.get_faults();
@@ -123,6 +126,7 @@ class HAL{ //hardware abstraction layer
 			r[4] = right_two.get_faults();
 			r[5] = right_three.get_faults();
 			r[6] = intake_motor.get_faults();
+			r[7] = elevator_motor.get_faults();
 			return r;
 		}
 		void easter_egg();
