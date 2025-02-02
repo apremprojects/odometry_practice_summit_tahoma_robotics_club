@@ -216,162 +216,40 @@ void autonomous() {
 	Status *status;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
 	robot->get_hal()->intake_start(false); //START INTAKE
-	robot->get_hal()->elevator_start(false); //START ELEVATOR
-	robot->setPos(214.55, 2400.00); //SET START_POS
+	robot->setPos(300.00, 2100.00); //SET START_POS
 	robot->set_angle(M_PI);
 	robot->set_control_point(false); //REVERSE CONTROL POINT
 
-	status = robot->goto_pos(600, 1, 900, 2400, false);
+	status = robot->goto_pos(600, 1, 1200, 2400, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 
-	status = robot->goto_pos(600, 1, 1500, 2400, true);
+	robot->get_hal()->toggle_clamp(true); //TOGGLE CLAMP
+	robot->get_hal()->elevator_start(false); //START ELEVATOR
+	robot->set_control_point(true); //NORMAL CONTROL POINT
+
+	status = robot->goto_pos(900, 1, 1200, 2700, false);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 
-	robot->get_hal()->toggle_clamp(true);
-
-
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-
-	//2024 Over Under Game Auton - Capable of scoring 3 triballs in one fell go - saved here for posterity
-	/*
-	Status *status;
-	int st = 0;
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
-	robot->get_hal()->intake_start(true);
-	delay(200);
-
-	status = robot->goto_pos(800, 3000, 900, 410, true);
+	status = robot->goto_pos(600, 1, 1200, 3380, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 
-	status = robot->goto_pos(800, 3000, 1500, 700, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	robot->get_hal()->intake_start(false);
-	status = robot->goto_pos(1200, 3000, 1500, 950, true);
-	st = millis();
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	backup(200);
-
-	status = robot->goto_pos(800, 3000, 900, 900, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	status = robot->goto_pos(800, 3000, 900, 1200, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-
-	//INTAKE
-	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(800, 100, 600, 1800, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	backup(-200);
-
-	status = robot->goto_pos(800, 3000, 990, 1800, true);
-	st = millis();
-	while(!status->done){
-		delay(20);
-		if(millis() - st > 500){
-			//EXHAUST
-			robot->get_hal()->intake_start(false);
-		}
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	robot->get_hal()->intake_start(false);
-	delay(200);
-	backup(200);
-
-	//INTAKE
-	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(800, 3000, 210, 1800, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	delay(200);
-
-	status = robot->goto_pos(800, 3000, 990, 1800, true);
-	st = millis();
-	while(!status->done){
-		delay(20);
-		if(millis() - st > 500){
-			//EXHAUST
-			robot->get_hal()->intake_start(false);
-		}
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	//EXHAUST
-	robot->get_hal()->intake_start(false);
-	delay(200);
-
-	//INTAKE
-	robot->get_hal()->intake_start(true);
-	status = robot->goto_pos(800, 3000, 210, 1200, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	delay(200);
-
-	st = millis();
-	status = robot->goto_pos(800, 3000, 990, 1800, true);
-	while(!status->done){
-		delay(20);
-		if(millis() - st > 500){
-			//EXHAUST
-			robot->get_hal()->intake_start(false);
-		}
-	}
-	robot->acknowledge();
-	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
-	//EXHAUST
-	robot->get_hal()->intake_start(false);
-	delay(200);
-
-	robot->set_throttle(127);
 	robot->set_yaw(0);
-	delay(200);
-	robot->set_throttle(-127);
-	robot->set_yaw(0);
-	delay(200);
-	robot->set_throttle(0);
-	robot->set_yaw(0);
-	*/
+	robot->set_throttle(60);
+	delay(1000);
+	robot->get_hal()->intake_stop();
+	robot->get_hal()->elevator_stop();
 
 
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 }
 /**
  * Runs the operator control code. This function will be started in its own task
