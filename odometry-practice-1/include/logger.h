@@ -58,11 +58,14 @@ class Logger{
 				is_file_available = false;
 			}
 		}
-		void end(){
+		void restart(){
+			std::lock_guard<Mutex> lock(mutex);
 			if(is_file_available){
 				fclose(log_file);
+				//is_file_available = false;
+				FILE *tmp = fopen(filename, "a");
+				log_file = tmp;
 			}
-			is_file_available = false;
 		}
 		//return true the SD card available, else, returns false
 		bool isFileAvailable(){
@@ -76,6 +79,7 @@ class Logger{
 		~Logger();
 	private:
 		Logger();
+		int last_close_time = 0;
 		const char* filename = "/usd/log.log";
  		std::string toTimestamp(const int timestamp);
 		Mutex mutex;

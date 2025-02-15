@@ -24,74 +24,80 @@ Logger::Logger() {
 }
 
 Logger::~Logger(){
-    fclose(log_file);
+    restart();
 }
 
 void Logger::log(const std::string input_message, const int type){
-    std::lock_guard<Mutex> lock(mutex);
-    items.push(LogItem(input_message, millis()));
-    std::string message_type;
-    if(type == FUNCTION_CALL){
-        message_type = "FUNCTION_CALL";
-    }
-    else if(type == DEBUG_MESSAGE){
-        message_type = "DEBUG_MESSAGE";
-    }
-    else if(type == POS_UPDATE){
-        message_type = "POS_UPDATE";
-    }
-    else if(type == TARGET_POS_UPDATE){
-        message_type = "TARGET_POS_UPDATE";
-    }
-    else if(type == ANGLE_UPDATE){
-        message_type = "ANGLE_UPDATE";
-    }
-    else if(type == TARGET_ANGLE_UPDATE){
-        message_type = "TARGET_ANGLE_UPDATE";
-    }
-    else if(type == VELOCITY_UPDATE){
-        message_type = "VELOCITY_UPDATE";
-    }
-    else if(type == TARGET_VELOCITY_UPDATE){
-        message_type = "TARGET_VELOCITY_UPDATE";
-    }
-    else if(type == THROTTLE_UPDATE){
-        message_type = "THROTTLE_UPDATE";
-    }
-    else if(type == YAW_UPDATE){
-        message_type = "YAW_UPDATE";
-    }
-    else if(type == WARNING){
-        message_type = "WARNING";
-    }
-    else if(type == DEPLOY_UPDATE){
-        message_type = "DEPLOY_UPDATE";
-    }
-    else if(type == INTAKE){
-        message_type = "INTAKE";
-    }
-    else if(type == PID_STATUS) {
-        message_type = "PID_STATUS";
-    }
-    else if(type == CONTROL_POINT){
-        message_type = "CONTROL_POINT";
-    }
-    else if(type == MODE_SWITCH){
-        message_type = "MODE_SWITCH";
-    }
-    while(!items.empty()){
-        std::string message = toTimestamp(items.front().timestamp) + " " + message_type + " " + items.front().message + "\n";
-        if(!is_file_available){
-            std::cout << message;
+    {
+        std::lock_guard<Mutex> lock(mutex);
+        items.push(LogItem(input_message, millis()));
+        std::string message_type;
+        if(type == FUNCTION_CALL){
+            message_type = "FUNCTION_CALL";
         }
-        else{
-            //std::cout << message;
-            const char* m = message.c_str();
-            fwrite(m, sizeof(char), strlen(m), log_file);
-            fflush(log_file);
+        else if(type == DEBUG_MESSAGE){
+            message_type = "DEBUG_MESSAGE";
         }
-        //then print log to screen
-        items.pop();
+        else if(type == POS_UPDATE){
+            message_type = "POS_UPDATE";
+        }
+        else if(type == TARGET_POS_UPDATE){
+            message_type = "TARGET_POS_UPDATE";
+        }
+        else if(type == ANGLE_UPDATE){
+            message_type = "ANGLE_UPDATE";
+        }
+        else if(type == TARGET_ANGLE_UPDATE){
+            message_type = "TARGET_ANGLE_UPDATE";
+        }
+        else if(type == VELOCITY_UPDATE){
+            message_type = "VELOCITY_UPDATE";
+        }
+        else if(type == TARGET_VELOCITY_UPDATE){
+            message_type = "TARGET_VELOCITY_UPDATE";
+        }
+        else if(type == THROTTLE_UPDATE){
+            message_type = "THROTTLE_UPDATE";
+        }
+        else if(type == YAW_UPDATE){
+            message_type = "YAW_UPDATE";
+        }
+        else if(type == WARNING){
+            message_type = "WARNING";
+        }
+        else if(type == DEPLOY_UPDATE){
+            message_type = "DEPLOY_UPDATE";
+        }
+        else if(type == INTAKE){
+            message_type = "INTAKE";
+        }
+        else if(type == PID_STATUS) {
+            message_type = "PID_STATUS";
+        }
+        else if(type == CONTROL_POINT){
+            message_type = "CONTROL_POINT";
+        }
+        else if(type == MODE_SWITCH){
+            message_type = "MODE_SWITCH";
+        }
+        while(!items.empty()){
+            std::string message = toTimestamp(items.front().timestamp) + " " + message_type + " " + items.front().message + "\n";
+            if(!is_file_available){
+                std::cout << message;
+            }
+            else{
+                //std::cout << message;
+                const char* m = message.c_str();
+                fwrite(m, sizeof(char), strlen(m), log_file);
+                fflush(log_file);
+            }
+            //then print log to screen
+            items.pop();
+        }
+    }
+    if(millis() - last_close_time > 5000) {
+        last_close_time = millis();
+        restart();
     }
 }
 

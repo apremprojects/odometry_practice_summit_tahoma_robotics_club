@@ -81,7 +81,7 @@ class State{
 		const double wheelbase_diameter = 320.0;
 	private:
 		std::pair<Eigen::Vector4d, Eigen::Matrix4d> predict(const std::pair<Eigen::Vector4d, Eigen::Matrix4d> in){
-			Logger::getDefault()->log("IN -> " + toString(in.first), DEBUG_MESSAGE);
+			//Logger::getDefault()->log("IN -> " + toString(in.first), DEBUG_MESSAGE);
 			std::pair<Eigen::Vector4d, Eigen::Matrix4d> res;
 			Eigen::Vector4d u{mixer->getThrottle(), mixer->getYaw(), 0, 0};
 			B(2, 0) = 3000.0 / (127.0 * update_freq);
@@ -90,7 +90,7 @@ class State{
 			F(1, 2) = sin(in.first(3)) / update_freq;
 			res.first = F * in.first + B * u;
 			res.second = F * in.second * F.transpose() + Q;
-			Logger::getDefault()->log("predict " + toString(res.first) + ", " + toString(res.second), DEBUG_MESSAGE);
+			//Logger::getDefault()->log("predict " + toString(res.first) + ", " + toString(res.second), DEBUG_MESSAGE);
 			return res;
 		}
 		std::pair<Eigen::Vector4d, Eigen::Matrix4d> update(const std::pair<Eigen::Vector4d, Eigen::Matrix4d> in){
@@ -112,7 +112,7 @@ class State{
 			z(2) = v;
 			z(3) = theta_imu;
 			z(4) = theta_odom;
-			Logger::getDefault()->log("raw sensor input -> " + toString(z), DEBUG_MESSAGE);
+			//Logger::getDefault()->log("raw sensor input -> " + toString(z), DEBUG_MESSAGE);
 			std::pair<Eigen::Vector4d, Eigen::Matrix4d> res;
 			Eigen::Vector<double, 5> y;
 			y = z - H * in.first;
@@ -125,7 +125,7 @@ class State{
   			res.first = in.first + K * y;
   			res.second = (I - K * H) * P;
 			//Logger::getDefault()->log("K -> " + toString(K), DEBUG_MESSAGE);
-			Logger::getDefault()->log("update " + toString(res.first) + ", " + toString(res.second), DEBUG_MESSAGE);
+			//Logger::getDefault()->log("update " + toString(res.first) + ", " + toString(res.second), DEBUG_MESSAGE);
 			return res;
 		}
 		double getRawAngle(){

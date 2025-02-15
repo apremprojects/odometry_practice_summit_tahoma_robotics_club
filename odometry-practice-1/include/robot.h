@@ -69,7 +69,7 @@ class Robot {
 			logger->log(std::to_string(new_angle), TARGET_ANGLE_UPDATE);
 			pid->changeRunningState(true);
 			pid->setTargetAngle(new_angle);
-			double o_angle = get_angle();
+			//double o_angle = get_angle();
 			double n_angle = get_angle();
 			if(blocking){
 				//wait until the robot reaches the target angle, check every 20ms
@@ -77,7 +77,7 @@ class Robot {
 				while(abs(n_angle - new_angle) > 0.1){
 					delay(20);
 				}
-				o_angle = n_angle;
+				//o_angle = n_angle;
 			}
 			return;
 		}
@@ -215,20 +215,24 @@ class Robot {
 						double p_g = 0.003, i_g = 0, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-						double angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+						double cur_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+						double old_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
 						bool reached = false;
+						set_velocity(0, false);
+						set_angle(get_angle(), false);
 						while(!reached){
 							cur_x = state->getX();
 							cur_y = state->getY();
 							cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
-							angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+							cur_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
 
 							p = p_g * cur_dist; //proportioning error
 							i += i_g * cur_dist; //integrating error
 							d = d_g * (cur_dist - old_dist);//derivative of error
 							//if angle error > 0.1 rads ~6 deg stop and try rotating
-							if(abs(get_angle() - angle) < 0.1){
-								set_angle(angle, false);
+							//ADDED 2/14/2025 - Robot will wait until angular rate is below 0.1 rad/s
+							if(abs(get_angle() - cur_angle) < 0.1 && (abs(cur_angle - old_angle) * 50) < 0.1){
+								set_angle(cur_angle, false);
 								if(cmd.decelerate){
 									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
 								}
@@ -238,7 +242,7 @@ class Robot {
 							}
 							else{
 								set_velocity(0, false);
-								set_angle(angle, false);
+								set_angle(cur_angle, false);
 							}
 							if(cur_dist <= threshold){
 								/*if(cur_dist >= old_dist){
@@ -247,6 +251,7 @@ class Robot {
 								reached = true;
 							}
 							old_dist = cur_dist;
+							old_angle = cur_angle;
 							delay(20);
 						}
 						if(cmd.decelerate){

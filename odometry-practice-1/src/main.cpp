@@ -29,7 +29,7 @@ class GUI{
 	private:
 		void drawSDCardBox(const bool is_logging_available){
 			pros::screen::set_pen(pros::c::COLOR_YELLOW);
-			pros::screen::print(TEXT_MEDIUM, 0, (std::string("Logging: ") + std::string(is_logging_available ? "Unavailable": "Available")).c_str());
+			pros::screen::print(TEXT_MEDIUM, 0, (std::string("Logging: ") + std::string(is_logging_available ? "Available": "Unvailable")).c_str());
 		}
 		void drawBatteryBox(const double battery_status){
 			pros::screen::set_pen(pros::c::COLOR_GREEN);
@@ -137,7 +137,7 @@ Robot *robot = nullptr;
 GUI *gui = nullptr;
 
 void initialize() {
-	robot = new Robot(0.5 * M_PI, 900, 210, 50);
+	robot = new Robot(M_PI, 210, 2100, 50);
 }
 
 /**
@@ -146,9 +146,7 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
-	Logger::getDefault()->end();
-	Logger::getDefault()->log("logging ended...", DEBUG_MESSAGE);
-	Logger::getDefault()->start();
+	Logger::getDefault()->restart();
 	Logger::getDefault()->log("logging restarted...", DEBUG_MESSAGE);
 }
 
@@ -194,31 +192,20 @@ void backup(const int del){
  * from where it left off.
  */
 void autonomous() {
-	//1
+	//Left side auton
 	/*
-	START_POS 214.55, 2400.00
-	REVERSE_CONTROL_POINT
-	GOTO 900.00, 2400.00 @ 600mm/s DONT DECELERATE
-	GOTO 1200.00, 2400.00 @ 200mm/s DECELERATE
-	ACTIVATE_CLAMP
-	ACTIVATE_INTAKE
-	ACTIVATE_ELEVATOR
-	GOTO 1200.00, 2700.00 @ 600mm/s DONT DECELERATE
-	GOTO 1200.00, 3000.00 @ 100mm/s DECELERATE
-	
-
-	Optional subroutine - touch ladder
-	GO 1200.00, 2400.00 @ 600mm/s DONT DECELERATE
-	GO 1800.00 - (half of robot length), 2400.00 @ 600mm/s DECELERATE
-
-	
-	*/
 	Status *status;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
 	robot->get_hal()->intake_start(false); //START INTAKE
-	robot->setPos(300.00, 2100.00); //SET START_POS
+	robot->setPos(210.00, 2100.00); //SET START_POS
 	robot->set_angle(M_PI);
 	robot->set_control_point(false); //REVERSE CONTROL POINT
+
+	status = robot->goto_pos(600, 1, 300, 2100, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
 
 	status = robot->goto_pos(600, 1, 1200, 2400, true);
 	while(!status->done){
@@ -229,27 +216,56 @@ void autonomous() {
 	robot->get_hal()->toggle_clamp(true); //TOGGLE CLAMP
 	robot->get_hal()->elevator_start(false); //START ELEVATOR
 	robot->set_control_point(true); //NORMAL CONTROL POINT
-
-	status = robot->goto_pos(900, 1, 1200, 2700, false);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-
-	status = robot->goto_pos(600, 1, 1200, 3380, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-
+	robot->set_throttle(0);
 	robot->set_yaw(0);
-	robot->set_throttle(60);
-	delay(1000);
-	robot->get_hal()->intake_stop();
-	robot->get_hal()->elevator_stop();
+	delay(2000); //robot will stationarily intake for 2 seconds
+	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
+
+	status = robot->goto_pos(600, 1, 1200, 2700, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	status = robot->goto_pos(600, 1, 1200, 3400, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	
+	robot->get_hal()->elevator_start(false); //START ELEVATOR
+	delay(2000);
+	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
+	robot->get_hal()->intake_start(true); //SPIT INTAKE
+
+	status = robot->goto_pos(900, 1, 1200, 1800, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	robot->get_hal()->intake_start(false); //START INTAKE
 
 
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	*/
+
+
+	//Wheel diameter calibration
+	Status *status;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
+	robot->setPos(210.00, 2100.00); //SET START_POS
+	robot->set_angle(M_PI);
+	robot->set_control_point(false); //REVERSE CONTROL POINT
+
+	status = robot->goto_pos(600, 1, 810, 2100, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	/*Skills auton*/
+	
 }
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -274,7 +290,8 @@ void writeGigabyte(){
 }
 
 void opcontrol() {
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	std::cout << "TEST\n";
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
 	//robot->setPos(214.55, 2400.00); //SET START_POS
 	//robot->set_angle(M_PI);
 	Logger *logger = Logger::getDefault();
