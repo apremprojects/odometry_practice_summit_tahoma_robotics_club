@@ -193,7 +193,6 @@ void backup(const int del){
  */
 void autonomous() {
 	//Left side auton
-	/*
 	Status *status;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
 	robot->get_hal()->intake_start(false); //START INTAKE
@@ -206,8 +205,16 @@ void autonomous() {
 		delay(20);
 	}
 	robot->acknowledge();
+	
 
-	status = robot->goto_pos(600, 1, 1200, 2400, true);
+	status = robot->goto_pos(600, 1, 700, 2100, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	
+
+	status = robot->goto_pos(600, 1, 1200, 1800, true);
 	while(!status->done){
 		delay(20);
 	}
@@ -219,8 +226,9 @@ void autonomous() {
 	robot->set_throttle(0);
 	robot->set_yaw(0);
 	delay(2000); //robot will stationarily intake for 2 seconds
-	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
+	//robot->get_hal()->elevator_stop(); //STOP ELEVATOR
 
+	/*
 	status = robot->goto_pos(600, 1, 1200, 2700, true);
 	while(!status->done){
 		delay(20);
@@ -238,20 +246,25 @@ void autonomous() {
 	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
 	robot->get_hal()->intake_start(true); //SPIT INTAKE
 
-	status = robot->goto_pos(900, 1, 1200, 1800, true);
+	status = robot->goto_pos(600, 1, 1200, 2100, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 
+	robot->set_velocity(200, false);
+	robot->set_angle((static_cast<int>(robot->get_angle() / (2 * M_PI)) + 1) * (2 * M_PI) + (1.5 * M_PI), false);
 	robot->get_hal()->intake_start(false); //START INTAKE
-
+	delay(2000);
+	robot->set_velocity(0, false);
 
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	*/
+	
 
 
 	//Wheel diameter calibration
+	/*
 	Status *status;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
 	robot->setPos(210.00, 2100.00); //SET START_POS
@@ -263,6 +276,7 @@ void autonomous() {
 		delay(20);
 	}
 	robot->acknowledge();
+	*/
 
 	/*Skills auton*/
 	

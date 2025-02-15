@@ -39,7 +39,7 @@ class Robot {
 			hal = new HAL(1, 5, 4, 1, 2, 3, 8, 9, 10, 17);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
-			pid = new PID(40, 0, 0, update_freq, mixer, state);
+			pid = new PID(20, 0, 0, update_freq, mixer, state); //40, 0, 0
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
@@ -229,9 +229,9 @@ class Robot {
 							p = p_g * cur_dist; //proportioning error
 							i += i_g * cur_dist; //integrating error
 							d = d_g * (cur_dist - old_dist);//derivative of error
-							//if angle error > 0.1 rads ~6 deg stop and try rotating
-							//ADDED 2/14/2025 - Robot will wait until angular rate is below 0.1 rad/s
-							if(abs(get_angle() - cur_angle) < 0.1 && (abs(cur_angle - old_angle) * 50) < 0.1){
+							//if angle error > 0.01 rads ~6 deg stop and try rotating
+							//ADDED 2/14/2025 - Robot will wait until angular rate is below 0.01 rad/s
+							if(abs(get_angle() - cur_angle) < 0.01 && (abs(cur_angle - old_angle) * 50) < 0.01){
 								set_angle(cur_angle, false);
 								if(cmd.decelerate){
 									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
