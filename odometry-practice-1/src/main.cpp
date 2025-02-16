@@ -207,14 +207,14 @@ void autonomous() {
 	robot->acknowledge();
 	
 
-	status = robot->goto_pos(600, 1, 700, 2100, true);
+	status = robot->goto_pos(600, 1, 1200, 2100, true); //was (600, 1, 700, 2100) 2/15/2025
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
+	/*
 	
-
-	status = robot->goto_pos(600, 1, 1200, 1800, true);
+	status = robot->goto_pos(600, 1, 1200, 2400, true);
 	while(!status->done){
 		delay(20);
 	}
@@ -228,7 +228,7 @@ void autonomous() {
 	delay(2000); //robot will stationarily intake for 2 seconds
 	//robot->get_hal()->elevator_stop(); //STOP ELEVATOR
 
-	/*
+
 	status = robot->goto_pos(600, 1, 1200, 2700, true);
 	while(!status->done){
 		delay(20);
@@ -305,7 +305,7 @@ void writeGigabyte(){
 
 void opcontrol() {
 	std::cout << "TEST\n";
-	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_COAST);
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
 	//robot->setPos(214.55, 2400.00); //SET START_POS
 	//robot->set_angle(M_PI);
 	Logger *logger = Logger::getDefault();

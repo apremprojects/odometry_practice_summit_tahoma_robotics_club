@@ -219,7 +219,7 @@ class Robot {
 						double old_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
 						bool reached = false;
 						set_velocity(0, false);
-						set_angle(get_angle(), false);
+						//set_angle(get_angle(), false);
 						while(!reached){
 							cur_x = state->getX();
 							cur_y = state->getY();
@@ -229,9 +229,8 @@ class Robot {
 							p = p_g * cur_dist; //proportioning error
 							i += i_g * cur_dist; //integrating error
 							d = d_g * (cur_dist - old_dist);//derivative of error
-							//if angle error > 0.01 rads ~6 deg stop and try rotating
-							//ADDED 2/14/2025 - Robot will wait until angular rate is below 0.01 rad/s
-							if(abs(get_angle() - cur_angle) < 0.01 && (abs(cur_angle - old_angle) * 50) < 0.01){
+							//if angle error > 0.1 rads ~6 deg stop and try rotating
+							if(abs(get_angle() - cur_angle) < 0.1 && (abs(cur_angle - old_angle) * 50) < 0.1){
 								set_angle(cur_angle, false);
 								if(cmd.decelerate){
 									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
