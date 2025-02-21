@@ -16,8 +16,25 @@ void PID::update(){
             new_angle = state->getAngle();
             p_a = new_angle_error * p_g;
             i_a += (new_angle_error * (1.0 / update_freq)) * i_g;
-            d_a = ((new_angle_error - old_angle_error) / (1.0 / update_freq)) * d_g;
+            if(target_angle > new_angle){ //robot must turn counterclockwise
+                d_a = ((old_angle - new_angle) / (1.0 / update_freq)) * d_g;
+            }
+            else { //robot must turn clockwise
+                d_a = ((new_angle - old_angle) / (1.0 / update_freq)) * d_g;
+            }
+
+            if(p_a > 0 && d_a > 0){
+                d_a = 0;
+            }
+            else if (p_a < 0 && d_a < 0){
+                d_a = 0;
+            }
+            //d_a should be negative if approaching the target_angle, positive if going away
+            Logger::getDefault()->log("PID -> " + std::to_string(p_a) + ", " + std::to_string(i_a) + ", " + std::to_string(d_a), DEBUG_MESSAGE);
+
+            //d_a should be negative if approaching the target_angle, positive if going away
             yaw_output = p_a + i_a + d_a;
+            yaw_output = std::clamp(yaw_output, -60.0, 60.0);
             v_rpm_target = (target_velocity * 60.0) / (2.0 * M_PI * state->wheel_radius);
             throttle_output = (v_rpm_target / mixer->max_throttle_rpm) * 127.0;
             mixer->setYaw(-yaw_output);

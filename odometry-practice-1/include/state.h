@@ -122,7 +122,8 @@ class State{
 			Logger::getDefault()->log("R -> " + toString(R), DEBUG_MESSAGE);
 			Logger::getDefault()->log("H -> " + toString(H), DEBUG_MESSAGE);*/
 			K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
-  			res.first = in.first + K * y;
+  			//res.first = in.first + K * y;
+			res.first = Eigen::Vector4d{z(0), z(1), z(2), z(3)};
   			res.second = (I - K * H) * P;
 			//Logger::getDefault()->log("K -> " + toString(K), DEBUG_MESSAGE);
 			//Logger::getDefault()->log("update " + toString(res.first) + ", " + toString(res.second), DEBUG_MESSAGE);

@@ -13,6 +13,7 @@
 #include <list>
 #include <utility>
 #include <csignal>
+#include "Eigen/Dense"
 using namespace pros;
 
 struct MotionCmd{
@@ -39,7 +40,13 @@ class Robot {
 			hal = new HAL(1, 5, 4, 1, 2, 3, 8, 9, 10, 17);
 			mixer = new Mixer(hal);
 			state = new State(hal, mixer, start_x, start_y, start_angle, update_freq);
-			pid = new PID(20, 0, 0, update_freq, mixer, state); //40, 0, 0
+			pid = new PID(80, 0, 10, update_freq, mixer, state); //40, 0,
+			//~3.14 first peak ampltiude attempting first angle set to 1.57 with 80, 0, - 10 -> 1.57 overshoot
+			//~1.58 fior peak amp with 80, 0, 10 - 0.01 overshoot
+			//60, 0, 10 - 2/16/2025 - notes too much oscillation, increase d term
+			//80, 0, 15 - too even more oscillation than last terms, maybe too much d?
+			//t=5.8 -> pos d term cuz moving away from setpoint, neg d term cuz moving towards set point
+			//80, 0, 5 - still oscillation but not as bad?
 			pid_task = new Task([this](){pid->update();});
 			state_task = new Task([this](){
 				while(true){
@@ -69,15 +76,14 @@ class Robot {
 			logger->log(std::to_string(new_angle), TARGET_ANGLE_UPDATE);
 			pid->changeRunningState(true);
 			pid->setTargetAngle(new_angle);
-			//double o_angle = get_angle();
-			double n_angle = get_angle();
 			if(blocking){
 				//wait until the robot reaches the target angle, check every 20ms
-				n_angle = get_angle();
-				while(abs(n_angle - new_angle) > 0.1){
+				double o_angle = get_angle();
+				while(fmod(abs(new_angle - get_angle()), 2 * M_PI) > 0.1 || abs(get_angle() - o_angle) > 0.1){
+					o_angle = get_angle();
 					delay(20);
+					//logger->log(std::to_string(fmod(abs(new_angle - get_angle()), 2 * M_PI)), DEBUG_MESSAGE);
 				}
-				//o_angle = n_angle;
 			}
 			return;
 		}
@@ -148,9 +154,30 @@ class Robot {
 		}
 		double get_angle_between(const double cur_x, const double cur_y, const double end_x, const double end_y, const double angle){
 			const double target_heading = atan2(end_y - cur_y, end_x - cur_x);
-			const double rotations = (angle - target_heading) / (2.0 * M_PI); // turns left
-			return round(rotations) * (2.0 * M_PI) + target_heading;
+			//const double rotations = (angle - target_heading) / (2.0 * M_PI); // turns left
+			return round_heading_to_rotations(target_heading, angle);
+
+			//return round(rotations) * (2.0 * M_PI) + target_heading;
+			//return target_heading;
 		}
+
+		double round_heading_to_rotations(const double target_heading, const double angle){
+			double lower = 0;
+			double upper = 0;
+			lower = std::floor((angle) / (2.0 * M_PI)) * (2.0 * M_PI) + target_heading;
+			upper = std::ceil((angle) / (2.0 * M_PI)) * (2.0 * M_PI) + target_heading;
+			double res = 0;
+			if(fabs(angle - lower) < fabs(angle - upper)){
+				res = lower;
+			}
+			else{
+				res = upper;
+			}
+			logger->log("RHTR " + std::to_string(lower) + ", " + std::to_string(upper) + ", " + std::to_string(res), DEBUG_MESSAGE);
+			return res;
+		}
+
+
 		double get_distance(const double cur_x, const double cur_y, const double end_x, const double end_y){
 			return sqrt(pow(end_x - cur_x, 2) + pow(end_y - cur_y, 2));
 		}
@@ -199,6 +226,7 @@ class Robot {
 		Logger *logger;
 		Mutex mutex;
 		double threshold = 50;
+		double endgame_dist = 200;
 		std::function<void()> goto_func = [this](){
 			while(pros::Task::notify_take(true, TIMEOUT_MAX)){ //timeout
 				{
@@ -211,15 +239,20 @@ class Robot {
 						//execute motioncmd somehow
 						double cur_x = state->getX();
 						double cur_y = state->getY();
+						double start_x = cur_x;
+						double start_y = cur_y;
+						//Eigen::Vector2d target_vector{cmd.end_x - start_x, cmd.end_y - start_y};
 						double p = 0, i = 0, d = 0;
-						double p_g = 0.003, i_g = 0, d_g = 0;
+						double p_g = 0.01, i_g = 0, d_g = 0;
 						double cur_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double old_dist = get_distance(cur_x, cur_y, cmd.end_x, cmd.end_y);
 						double cur_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
 						double old_angle = get_angle_between(cur_x, cur_y, cmd.end_x, cmd.end_y, get_angle());
+						double endgame_mode = false;
+						double endgame_angle = 0;
 						bool reached = false;
 						set_velocity(0, false);
-						//set_angle(get_angle(), false);
+						set_angle(cur_angle, true);
 						while(!reached){
 							cur_x = state->getX();
 							cur_y = state->getY();
@@ -228,9 +261,19 @@ class Robot {
 
 							p = p_g * cur_dist; //proportioning error
 							i += i_g * cur_dist; //integrating error
-							d = d_g * (cur_dist - old_dist);//derivative of error
+							d = d_g * cur_dist;//derivative of error
 							//if angle error > 0.1 rads ~6 deg stop and try rotating
-							if(abs(get_angle() - cur_angle) < 0.1 && (abs(cur_angle - old_angle) * 50) < 0.1){
+
+							/*
+							double lateral_error = 0;
+							if(target_vector.norm() != 0){
+								Eigen::Vector2d actual_vector = {cur_x - start_x, cur_y - start_y};
+								lateral_error = (actual_vector - ((actual_vector.dot(target_vector) / target_vector.dot(target_vector)) * target_vector)).norm();
+								logger->log("LAT_ERROR " + std::to_string(lateral_error), DEBUG_MESSAGE);
+							}
+							*/
+
+							if((fabs(get_angle() - cur_angle) < 0.1 && (fabs(cur_angle - old_angle) * 50) < 0.1) && cur_dist > endgame_dist){
 								set_angle(cur_angle, false);
 								if(cmd.decelerate){
 									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
@@ -239,10 +282,29 @@ class Robot {
 									set_velocity(cmd.max_velocity, false);
 								}
 							}
-							else{
-								set_velocity(0, false);
-								set_angle(cur_angle, false);
+							else if (cur_dist <= endgame_dist){
+								//blocking lock to endgame angle
+								//merely go forwards
+								if(!endgame_mode){ //if not endgame mode
+									endgame_angle = cur_angle; //set endgame_angle to current angle between robot and target
+									endgame_mode = true; //enable endgame mode
+									set_velocity(0, false);
+									set_angle(endgame_angle, true);
+									logger->log("ENDGAME MODE", DEBUG_MESSAGE);
+								}
+								if(cmd.decelerate){
+									set_velocity(std::min((p + i + d) * cmd.max_velocity, cmd.max_velocity), false);
+								}
+								else{
+									set_velocity(cmd.max_velocity, false);
+								}
+								
 							}
+							else{
+								set_angle(cur_angle, false);
+								set_velocity(0, false);
+							}
+
 							if(cur_dist <= threshold){
 								/*if(cur_dist >= old_dist){
 									reached = true;

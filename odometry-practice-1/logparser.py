@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from argparse import ArgumentParser
 import re
 
@@ -66,6 +67,12 @@ if __name__ == "__main__":
         target_angle_times = []
         actual_angles = []
         actual_angle_times = []
+
+        target_velocity = []
+        target_velocity_times = []
+
+        actual_velocity = []
+        actual_velocity_times = []
         for line in f:
             split_line = line.split()
             timestamp = split_line[0]
@@ -77,22 +84,23 @@ if __name__ == "__main__":
             elif message_type == "TARGET_ANGLE_UPDATE":
                 target_angles.append(float(split_line[2]))
                 target_angle_times.append(t)
+            elif message_type == "VELOCITY_UPDATE":
+                actual_velocity.append(float(split_line[2]))
+                actual_velocity_times.append(t)
+            elif message_type == "TARGET_VELOCITY_UPDATE":
+                target_velocity.append(float(split_line[2]))
+                target_velocity_times.append(t)
+                
     print(len(actual_angles))
     print(len(target_angles))
-    print(target_angle_times)
-    target_angles_draw = []
-    target_angle_times_draw = []
-    for i in range(0, len(target_angles), 50):
-        target_angles_draw.append(target_angles[i])
-        target_angle_times_draw.append(target_angle_times[i])
+    #print(target_angle_times)
 
-    actual_angles_draw = []
-    actual_angle_times_draw = []
-    for i in range(0, len(actual_angles), 50):
-        actual_angles_draw.append(actual_angles[i])
-        actual_angle_times_draw.append(actual_angle_times[i])
     plt.figure()
-    plt.plot(target_angle_times_draw, target_angles_draw, alpha=1, label="target angles", color = "blue")
-    plt.plot(actual_angle_times_draw, actual_angles_draw, alpha=1, label="actual angles", color = "red")
-    plt.gca().set_ylim([-20, 20])
+    plt.plot(target_angle_times, target_angles, alpha=1, label="target angles", color = "blue")
+    plt.plot(actual_angle_times, actual_angles, alpha=1, label="actual angles", color = "red")
+
+    #plt.plot(actual_velocity_times, actual_velocity, alpha=1, label="actual velocity", color = "yellow")
+    #plt.plot(target_velocity_times, target_velocity, alpha=1, label="target velocity", color = "green")
+
+    #plt.gca().set_ylim([-20, 20])
     plt.show()

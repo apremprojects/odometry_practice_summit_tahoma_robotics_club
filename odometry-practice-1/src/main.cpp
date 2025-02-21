@@ -192,75 +192,191 @@ void backup(const int del){
  * from where it left off.
  */
 void autonomous() {
+
+
+
 	//Left side auton
+	/*
 	Status *status;
 	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
 	robot->get_hal()->intake_start(false); //START INTAKE
 	robot->setPos(210.00, 2100.00); //SET START_POS
-	robot->set_angle(M_PI);
 	robot->set_control_point(false); //REVERSE CONTROL POINT
-
-	status = robot->goto_pos(600, 1, 300, 2100, true);
+	robot->set_angle(5 * M_PI); //the heading is actually pi, not 3*pi. It wraps around
+	delay(40);
+ 
+	status = robot->goto_pos(900, 1, 300, 2100, false);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
-	
-
-	status = robot->goto_pos(600, 1, 1200, 2100, true); //was (600, 1, 700, 2100) 2/15/2025
+ 
+ 
+	status = robot->goto_pos(900, 1, 600, 2100, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
-	/*
-	
-	status = robot->goto_pos(600, 1, 1200, 2400, true);
+ 
+	status = robot->goto_pos(900, 1, 1300, 2500, true);
 	while(!status->done){
 		delay(20);
 	}
 	robot->acknowledge();
 
+	robot->set_yaw(0);
+	robot->set_throttle(0);
 	robot->get_hal()->toggle_clamp(true); //TOGGLE CLAMP
 	robot->get_hal()->elevator_start(false); //START ELEVATOR
-	robot->set_control_point(true); //NORMAL CONTROL POINT
-	robot->set_throttle(0);
-	robot->set_yaw(0);
-	delay(2000); //robot will stationarily intake for 2 seconds
-	//robot->get_hal()->elevator_stop(); //STOP ELEVATOR
-
-
-	status = robot->goto_pos(600, 1, 1200, 2700, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-
-	status = robot->goto_pos(600, 1, 1200, 3400, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
 	
+	delay(2000); //robot will stationarily intake for 2 seconds
+	robot->set_control_point(true); //NORMAL CONTROL POINT
+	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
+	
+	status = robot->goto_pos(900, 1, 1200, 3000, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
 	robot->get_hal()->elevator_start(false); //START ELEVATOR
 	delay(2000);
-	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
-	robot->get_hal()->intake_start(true); //SPIT INTAKE
-
-	status = robot->goto_pos(600, 1, 1200, 2100, true);
-	while(!status->done){
-		delay(20);
-	}
-	robot->acknowledge();
-
-	robot->set_velocity(200, false);
-	robot->set_angle((static_cast<int>(robot->get_angle() / (2 * M_PI)) + 1) * (2 * M_PI) + (1.5 * M_PI), false);
+	
+	//robot->get_hal()->intake_start(true); //SPIT INTAKE
+	
+ 
+	robot->set_velocity(0, false);
+	robot->set_angle(robot->round_heading_to_rotations(1.5 * M_PI, robot->get_angle()), true);
 	robot->get_hal()->intake_start(false); //START INTAKE
 	delay(2000);
-	robot->set_velocity(0, false);
-
+	robot->set_velocity(600, false);
+ 
 	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
 	*/
 	
+
+
+	//right side auton
+	/*
+	Status *status;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
+	robot->get_hal()->intake_start(false); //START INTAKE
+	robot->setPos(210.00, 1500.00); //SET START_POS
+	robot->set_control_point(false); //REVERSE CONTROL POINT
+	robot->set_angle(5 * M_PI); //the heading is actually pi, not 3*pi. It wraps around
+	delay(40);
+ 
+	status = robot->goto_pos(900, 1, 300, 1500, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+ 
+ 
+	status = robot->goto_pos(900, 1, 600, 1500, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+ 
+	status = robot->goto_pos(900, 1, 1300, 1100, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	robot->set_yaw(0);
+	robot->set_throttle(0);
+	robot->get_hal()->toggle_clamp(true); //TOGGLE CLAMP
+	robot->get_hal()->elevator_start(false); //START ELEVATOR
+	
+	delay(2000); //robot will stationarily intake for 2 seconds
+	robot->set_control_point(true); //NORMAL CONTROL POINT
+	robot->get_hal()->elevator_stop(); //STOP ELEVATOR
+	
+	status = robot->goto_pos(900, 1, 1200, 600, true);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+	robot->get_hal()->elevator_start(false); //START ELEVATOR
+	delay(2000);
+	
+	robot->set_velocity(0, false);
+	robot->set_angle(robot->round_heading_to_rotations(0.5 * M_PI, robot->get_angle()), true);
+	robot->get_hal()->intake_start(false); //START INTAKE
+	delay(2000);
+	robot->set_velocity(600, false);
+ 
+	Logger::getDefault()->log("DONE", DEBUG_MESSAGE);
+	*/
+	
+
+
+	//Skills auton
+	Status *status;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
+	robot->get_hal()->intake_start(false); //START INTAKE
+	robot->setPos(300.00, 1800.00); //SET START_POS
+	robot->set_control_point(true); //NORMAL CONTROL POINT
+	robot->set_angle(0); //the heading is 0
+	robot->get_hal()->elevator_start(false); //Start elevator
+	robot->get_hal()->intake_start(false); //Start intake
+	
+	delay(1000);
+
+	status = robot->goto_pos(400, 1, 600, 1800, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	robot->set_control_point(false); //REVERSE CONTROL POINT
+
+	status = robot->goto_pos(400, 1, 600, 1800, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();	
+
+	status = robot->goto_pos(400, 1, 600, 1200, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();	
+
+	robot->get_hal()->toggle_clamp(true);
+	robot->set_control_point(true);
+
+	status = robot->goto_pos(400, 1, 1200, 1200, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	status = robot->goto_pos(400, 1, 1800, 300, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();	
+
+	status = robot->goto_pos(400, 1, 1200, 600, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	status = robot->goto_pos(400, 1, 300, 600, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
+	status = robot->goto_pos(400, 1, 600, 300, false);
+	while(!status->done){
+		delay(20);
+	}
+	robot->acknowledge();
+
 
 
 	//Wheel diameter calibration
@@ -270,7 +386,7 @@ void autonomous() {
 	robot->setPos(210.00, 2100.00); //SET START_POS
 	robot->set_angle(M_PI);
 	robot->set_control_point(false); //REVERSE CONTROL POINT
-
+ 
 	status = robot->goto_pos(600, 1, 810, 2100, true);
 	while(!status->done){
 		delay(20);
@@ -278,8 +394,57 @@ void autonomous() {
 	robot->acknowledge();
 	*/
 
-	/*Skills auton*/
-	
+
+
+	//Square dance pid calibration
+	/*
+	Status *status;
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE);
+	robot->set_control_point(true);
+	robot->setPos(0.00, 0.00);
+	robot->set_angle(0.5 * M_PI);
+	//RobotController controller(0.2, 127, 3, robot);
+	while(true){
+		status = robot->goto_pos(500, 1, 600, 0, true);
+		while(!status->done){
+			delay(20);
+		}
+		robot->acknowledge();
+		
+		status = robot->goto_pos(500, 1, 600, 600, true);
+		while(!status->done){
+			delay(20);
+		}
+		robot->acknowledge();
+		
+		status = robot->goto_pos(500, 1, 0, 600, true);
+		while(!status->done){
+			delay(20);
+		}
+		robot->acknowledge();
+
+		status = robot->goto_pos(500, 1, 0, 0, true);
+		while(!status->done){
+			delay(20);
+		}
+		robot->acknowledge();
+	}
+	*/
+
+
+
+	//pid tuner?
+	/*
+	robot->set_angle(0);
+	robot->get_hal()->set_brake_mode(E_MOTOR_BRAKE_BRAKE); //ENABLE BRAKE MODE
+	int i = 0;
+	while(true){
+		robot->set_angle(i * M_PI / 2.0, false);
+		delay(2000);
+		robot->set_angle(i * M_PI / 2.0, false);
+		i++;
+	}
+	*/
 }
 /**
  * Runs the operator control code. This function will be started in its own task

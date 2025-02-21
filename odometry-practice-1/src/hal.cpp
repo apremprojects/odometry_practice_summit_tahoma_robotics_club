@@ -66,12 +66,12 @@ void HAL::elevator_start(const bool direction){
     if(direction){
         Warning::getDefault()->raise(7);
         //intake_motor.move_velocity(-600);
-        elevator_motor.move(-127);
+        elevator_motor.move_velocity(-150);
     }
     else{
         Warning::getDefault()->raise(6);
         //intake_motor.move_velocity(600);
-        elevator_motor.move(127);
+        elevator_motor.move_velocity(150);
     }
     isElevatorElevating = true;
 }
